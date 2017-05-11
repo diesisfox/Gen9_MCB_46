@@ -4,37 +4,37 @@
   * Description        : Main program body
   ******************************************************************************
   *
-  * Copyright (c) 2017 STMicroelectronics International N.V. 
+  * Copyright (c) 2017 STMicroelectronics International N.V.
   * All rights reserved.
   *
-  * Redistribution and use in source and binary forms, with or without 
+  * Redistribution and use in source and binary forms, with or without
   * modification, are permitted, provided that the following conditions are met:
   *
-  * 1. Redistribution of source code must retain the above copyright notice, 
+  * 1. Redistribution of source code must retain the above copyright notice,
   *    this list of conditions and the following disclaimer.
   * 2. Redistributions in binary form must reproduce the above copyright notice,
   *    this list of conditions and the following disclaimer in the documentation
   *    and/or other materials provided with the distribution.
-  * 3. Neither the name of STMicroelectronics nor the names of other 
-  *    contributors to this software may be used to endorse or promote products 
+  * 3. Neither the name of STMicroelectronics nor the names of other
+  *    contributors to this software may be used to endorse or promote products
   *    derived from this software without specific written permission.
-  * 4. This software, including modifications and/or derivative works of this 
+  * 4. This software, including modifications and/or derivative works of this
   *    software, must execute solely and exclusively on microcontroller or
   *    microprocessor devices manufactured by or for STMicroelectronics.
-  * 5. Redistribution and use of this software other than as permitted under 
-  *    this license is void and will automatically terminate your rights under 
-  *    this license. 
+  * 5. Redistribution and use of this software other than as permitted under
+  *    this license is void and will automatically terminate your rights under
+  *    this license.
   *
-  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
-  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
-  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS"
+  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT
+  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
   * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
-  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
+  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT
   * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
   * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
-  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
-  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
+  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
   * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
@@ -46,12 +46,18 @@
 #include "cmsis_os.h"
 
 /* USER CODE BEGIN Includes */
+#include "can.h"
+#include "serial.h"
+#include "nodeMiscHelpers.h"
+#include "nodeConf.h"
+#include "../../CAN_ID.h"
+
+// RTOS Task functions + helpers
+#include "Can_Processor.h"
 
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
-ADC_HandleTypeDef hadc1;
-
 CAN_HandleTypeDef hcan1;
 CAN_HandleTypeDef hcan2;
 
@@ -63,10 +69,13 @@ DMA_HandleTypeDef hdma_usart2_tx;
 
 WWDG_HandleTypeDef hwwdg;
 
-osThreadId ApplicationHandle;
 osThreadId Can_ProcessorHandle;
+osThreadId SigLightsHandle;
+osThreadId MotCanProcessorHandle;
+osThreadId Switch_ReaderHandle;
 osMessageQId mainCanTxQHandle;
 osMessageQId mainCanRxQHandle;
+osMessageQId motCanRxQHandle;
 osTimerId WWDGTmrHandle;
 osTimerId HBTmrHandle;
 osMutexId swMtxHandle;
@@ -85,9 +94,10 @@ static void MX_CAN1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_WWDG_Init(void);
 static void MX_SPI3_Init(void);
-static void MX_ADC1_Init(void);
-void doApplication(void const * argument);
 void doProcessCan(void const * argument);
+void doSigLights(void const * argument);
+void doMotCan(void const * argument);
+void doSwitches(void const * argument);
 void TmrKickDog(void const * argument);
 void TmrSendHB(void const * argument);
 
@@ -104,7 +114,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+	selfStatusWord = INIT;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -122,10 +132,13 @@ int main(void)
   MX_USART2_UART_Init();
   MX_WWDG_Init();
   MX_SPI3_Init();
-  MX_ADC1_Init();
 
   /* USER CODE BEGIN 2 */
+  Serial2_begin();
+	Serial2_writeBuf("Booting... \n");
 
+	bxCan_begin(&hcan1, &mainCanRxQHandle, &mainCanTxQHandle);
+	bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0);
   /* USER CODE END 2 */
 
   /* Create the mutex(es) */
@@ -155,13 +168,21 @@ int main(void)
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the thread(s) */
-  /* definition and creation of Application */
-  osThreadDef(Application, doApplication, osPriorityNormal, 0, 512);
-  ApplicationHandle = osThreadCreate(osThread(Application), NULL);
-
   /* definition and creation of Can_Processor */
-  osThreadDef(Can_Processor, doProcessCan, osPriorityBelowNormal, 0, 512);
+  osThreadDef(Can_Processor, doProcessCan, osPriorityHigh, 0, 512);
   Can_ProcessorHandle = osThreadCreate(osThread(Can_Processor), NULL);
+
+  /* definition and creation of SigLights */
+  osThreadDef(SigLights, doSigLights, osPriorityBelowNormal, 0, 256);
+  SigLightsHandle = osThreadCreate(osThread(SigLights), NULL);
+
+  /* definition and creation of MotCanProcessor */
+  osThreadDef(MotCanProcessor, doMotCan, osPriorityAboveNormal, 0, 512);
+  MotCanProcessorHandle = osThreadCreate(osThread(MotCanProcessor), NULL);
+
+  /* definition and creation of Switch_Reader */
+  osThreadDef(Switch_Reader, doSwitches, osPriorityLow, 0, 256);
+  Switch_ReaderHandle = osThreadCreate(osThread(Switch_Reader), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -176,14 +197,18 @@ int main(void)
   osMessageQDef(mainCanRxQ, 32, Can_frame_t);
   mainCanRxQHandle = osMessageCreate(osMessageQ(mainCanRxQ), NULL);
 
+  /* definition and creation of motCanRxQ */
+  osMessageQDef(motCanRxQ, 32, Can_frame_t);
+  motCanRxQHandle = osMessageCreate(osMessageQ(motCanRxQ), NULL);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
- 
+
 
   /* Start scheduler */
   osKernelStart();
-  
+
   /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
@@ -207,13 +232,13 @@ void SystemClock_Config(void)
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
 
-    /**Configure the main internal regulator output voltage 
+    /**Configure the main internal regulator output voltage
     */
   __HAL_RCC_PWR_CLK_ENABLE();
 
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
@@ -230,7 +255,7 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
@@ -244,53 +269,16 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-    /**Configure the Systick interrupt time 
+    /**Configure the Systick interrupt time
     */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-    /**Configure the Systick 
+    /**Configure the Systick
     */
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
   /* SysTick_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(SysTick_IRQn, 15, 0);
-}
-
-/* ADC1 init function */
-static void MX_ADC1_Init(void)
-{
-
-  ADC_ChannelConfTypeDef sConfig;
-
-    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
-    */
-  hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
-    */
-  sConfig.Channel = ADC_CHANNEL_8;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
 }
 
 /* CAN1 init function */
@@ -397,10 +385,10 @@ static void MX_WWDG_Init(void)
 
 }
 
-/** 
+/**
   * Enable DMA controller clock
   */
-static void MX_DMA_Init(void) 
+static void MX_DMA_Init(void)
 {
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
@@ -415,13 +403,13 @@ static void MX_DMA_Init(void)
 
 }
 
-/** Configure pins as 
-        * Analog 
-        * Input 
+/** Configure pins as
+        * Analog
+        * Input
         * Output
         * EVENT_OUT
         * EXTI
-        * Free pins are configured automatically as Analog (this feature is enabled through 
+        * Free pins are configured automatically as Analog (this feature is enabled through
         * the Code Generation settings)
 */
 static void MX_GPIO_Init(void)
@@ -443,14 +431,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, ENGAGE_LIGHT_Pin|HV_MAIN__MC_ON_Pin|RIGHT_LIGHT_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, ARRAY_PRE_SIG_Pin|ARRAY_ON_SIG_Pin|MOTOR_PRE_SIG_Pin|MOTOR_ON_SIG_Pin 
-                          |BRK_LIGHT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, ENGAGE_LIGHT_Pin|RIGHT_LIGHT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port, LEFT_LIGHT_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port, BRK_LIGHT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -458,17 +445,23 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LEFT_SIG_SWITCH_Pin SCREEN_LEFT_Pin SCREEN_RIGHT_Pin HV_BOTH__MC_ON_Pin 
-                           GEAR_N_Pin HV_BOTH__MC_OFF_Pin MAG_TIM_UP_Pin */
-  GPIO_InitStruct.Pin = LEFT_SIG_SWITCH_Pin|SCREEN_LEFT_Pin|SCREEN_RIGHT_Pin|HV_BOTH__MC_ON_Pin 
-                          |GEAR_N_Pin|HV_BOTH__MC_OFF_Pin|MAG_TIM_UP_Pin;
+  /*Configure GPIO pins : LEFT_SIG_SWITCH_Pin SCREEN_LEFT_Pin SCREEN_RIGHT_Pin */
+  GPIO_InitStruct.Pin = LEFT_SIG_SWITCH_Pin|SCREEN_LEFT_Pin|SCREEN_RIGHT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA0 PA15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_15;
+  /*Configure GPIO pins : PA0 PA6 PA7 PA8
+                           PA9 PA10 PA15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8
+                          |GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
@@ -486,14 +479,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : COIL_STA_DOWN_Pin REGEN_ON_Pin GEAR_F_Pin GEAR_R_Pin 
-                           PWM_DOWN_Pin */
-  GPIO_InitStruct.Pin = COIL_STA_DOWN_Pin|REGEN_ON_Pin|GEAR_F_Pin|GEAR_R_Pin 
-                          |PWM_DOWN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
   /*Configure GPIO pin : ENGAGE_LIGHT_Pin */
   GPIO_InitStruct.Pin = ENGAGE_LIGHT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -501,25 +486,25 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(ENGAGE_LIGHT_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : HV_MAIN__MC_ON_Pin */
-  GPIO_InitStruct.Pin = HV_MAIN__MC_ON_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  /*Configure GPIO pins : PC5 PC6 PC7 PC8
+                           PC9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8
+                          |GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(HV_MAIN__MC_ON_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : ARRAY_PRE_SIG_Pin ARRAY_ON_SIG_Pin MOTOR_PRE_SIG_Pin MOTOR_ON_SIG_Pin */
-  GPIO_InitStruct.Pin = ARRAY_PRE_SIG_Pin|ARRAY_ON_SIG_Pin|MOTOR_PRE_SIG_Pin|MOTOR_ON_SIG_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  /*Configure GPIO pins : PB0 ENGAGE_SIG_Pin RIGHT_SIG_SWITCH_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|ENGAGE_SIG_Pin|RIGHT_SIG_SWITCH_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PWM_LOCK_Pin ENGAGE_SIG_Pin RIGHT_SIG_SWITCH_Pin PWM_UP_Pin 
-                           MAG_TIM_DOWN_Pin COIL_STA_UP_Pin */
-  GPIO_InitStruct.Pin = PWM_LOCK_Pin|ENGAGE_SIG_Pin|RIGHT_SIG_SWITCH_Pin|PWM_UP_Pin 
-                          |MAG_TIM_DOWN_Pin|COIL_STA_UP_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  /*Configure GPIO pins : PB1 PB2 PB10 PB12
+                           PB15 PB4 PB8 PB9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_10|GPIO_PIN_12
+                          |GPIO_PIN_15|GPIO_PIN_4|GPIO_PIN_8|GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
@@ -554,36 +539,67 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* doApplication function */
-void doApplication(void const * argument)
+/* doProcessCan function */
+void doProcessCan(void const * argument)
 {
 
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
+  for(;;){
+	  // Wrapper function for the CAN Processing Logic
+	  // Handles all CAN Protocol Suite based responses and tasks
+#ifndef DISABLE_CAN
+	  Can_Processor();
+#else
+	  osDelay(10000);
+#endif
   }
-  /* USER CODE END 5 */ 
+  /* USER CODE END 5 */
 }
 
-/* doProcessCan function */
-void doProcessCan(void const * argument)
+/* doSigLights function */
+void doSigLights(void const * argument)
 {
-  /* USER CODE BEGIN doProcessCan */
+  /* USER CODE BEGIN doSigLights */
   /* Infinite loop */
   for(;;)
   {
     osDelay(1);
   }
-  /* USER CODE END doProcessCan */
+  /* USER CODE END doSigLights */
+}
+
+/* doMotCan function */
+void doMotCan(void const * argument)
+{
+  /* USER CODE BEGIN doMotCan */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END doMotCan */
+}
+
+/* doSwitches function */
+void doSwitches(void const * argument)
+{
+  /* USER CODE BEGIN doSwitches */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END doSwitches */
 }
 
 /* TmrKickDog function */
 void TmrKickDog(void const * argument)
 {
   /* USER CODE BEGIN TmrKickDog */
-  
+  taskENTER_CRITICAL();
+  HAL_WWDG_Refresh(&hwwdg);
+  taskEXIT_CRITICAL();
   /* USER CODE END TmrKickDog */
 }
 
@@ -591,7 +607,39 @@ void TmrKickDog(void const * argument)
 void TmrSendHB(void const * argument)
 {
   /* USER CODE BEGIN TmrSendHB */
-  
+  static Can_frame_t newFrame;
+
+  //	newFrame.isExt = 0;
+  //	newFrame.isRemote = 0;
+  // ^ is initialized as 0
+
+  if(getSelfState() == ACTIVE){
+  	// Assemble new heartbeat frame
+  	newFrame.id = selfNodeID + swOffset;
+  	newFrame.dlc = CAN_HB_DLC;
+  	for(int i=0; i<4; i++){
+  		newFrame.Data[3-i] = (selfStatusWord >> (8*i)) & 0xff;			// Convert uint32_t -> uint8_t
+  	}
+  	bxCan_sendFrame(&newFrame);
+  	#ifdef DEBUG
+  		static uint8_t hbmsg[] = "Heartbeat issued\n";
+  		Serial2_writeBytes(hbmsg, sizeof(hbmsg)-1);
+  	#endif
+  }
+  else if (getSelfState() == INIT){
+  	// Assemble new addition request (firmware version) frame
+  	newFrame.id = selfNodeID + fwOffset;
+  	newFrame.dlc = CAN_FW_DLC;
+  	for(int i=0; i<4; i++){
+  		newFrame.Data[3-i] = (firmwareString >> (8*i)) & 0xff;			// Convert uint32_t -> uint8_t
+  	}
+  	bxCan_sendFrame(&newFrame);
+  	#ifdef DEBUG
+  		static uint8_t hbmsg[] = "Init handshake issued\n";
+  		Serial2_writeBytes(hbmsg, sizeof(hbmsg)-1);
+  	#endif
+  }
+  // No heartbeats sent in other states
   /* USER CODE END TmrSendHB */
 }
 
@@ -625,10 +673,10 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler */
   /* User can add his own implementation to report the HAL error return state */
-  while(1) 
+  while(1)
   {
   }
-  /* USER CODE END Error_Handler */ 
+  /* USER CODE END Error_Handler */
 }
 
 #ifdef USE_FULL_ASSERT
@@ -653,10 +701,10 @@ void assert_failed(uint8_t* file, uint32_t line)
 
 /**
   * @}
-  */ 
+  */
 
 /**
   * @}
-*/ 
+*/
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

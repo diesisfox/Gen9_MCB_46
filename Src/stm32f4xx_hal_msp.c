@@ -84,65 +84,6 @@ void HAL_MspInit(void)
   /* USER CODE END MspInit 1 */
 }
 
-void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
-{
-
-  GPIO_InitTypeDef GPIO_InitStruct;
-  if(hadc->Instance==ADC1)
-  {
-  /* USER CODE BEGIN ADC1_MspInit 0 */
-
-  /* USER CODE END ADC1_MspInit 0 */
-    /* Peripheral clock enable */
-    __HAL_RCC_ADC1_CLK_ENABLE();
-  
-    /**ADC1 GPIO Configuration    
-    PA1     ------> ADC1_IN1
-    PB0     ------> ADC1_IN8 
-    */
-    GPIO_InitStruct.Pin = BRK_ADC_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(BRK_ADC_GPIO_Port, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = ACC_ADC_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(ACC_ADC_GPIO_Port, &GPIO_InitStruct);
-
-  /* USER CODE BEGIN ADC1_MspInit 1 */
-
-  /* USER CODE END ADC1_MspInit 1 */
-  }
-
-}
-
-void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
-{
-
-  if(hadc->Instance==ADC1)
-  {
-  /* USER CODE BEGIN ADC1_MspDeInit 0 */
-
-  /* USER CODE END ADC1_MspDeInit 0 */
-    /* Peripheral clock disable */
-    __HAL_RCC_ADC1_CLK_DISABLE();
-  
-    /**ADC1 GPIO Configuration    
-    PA1     ------> ADC1_IN1
-    PB0     ------> ADC1_IN8 
-    */
-    HAL_GPIO_DeInit(BRK_ADC_GPIO_Port, BRK_ADC_Pin);
-
-    HAL_GPIO_DeInit(ACC_ADC_GPIO_Port, ACC_ADC_Pin);
-
-  }
-  /* USER CODE BEGIN ADC1_MspDeInit 1 */
-
-  /* USER CODE END ADC1_MspDeInit 1 */
-
-}
-
 static uint32_t HAL_RCC_CAN1_CLK_ENABLED=0;
 
 void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
