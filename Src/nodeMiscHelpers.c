@@ -128,37 +128,27 @@ void soft_shutdown(void(*usr_clbk)()){
 	// TODO: Test if bxCan_sendFrame can successfully send the new frame and flush the queue
 }
 
-/*
- * Routine for bps line asserting and the saving of data beforehand, with its support functions
- */
-void fault_save_data(){
-	//stubby
+
+#define readSwitch(x) ((HAL_GPIO_ReadPin( x ## _GPIO_Port, x ## _Pin )?1:0)<< x )
+   
+uint32_t readSwitches(){
+    uint32_t retval = 0;
+    retval |= readSwitch(LEFT_SIG_SWITCH);
+    retval |= readSwitch(RIGHT_SIG_SWITCH);
+    retval |= readSwitch(HAZARD_SWITCH);
+    return retval;
 }
 
-void assert_bps_fault(uint16_t addr, uint32_t value){	//addr and value of out of line reading
-	//what the name says
-	vTaskPrioritySet(NULL, tskIDLE_PRIORITY + configMAX_PRIORITIES - 1);
-
-	fault_save_data();
-
-	// Broadcast bps fault to main CAN
-	Can_frame_t newFrame;
-	newFrame.id = bpsTrip;
-	newFrame.isExt = 0;
-	newFrame.isRemote = 0;
-	newFrame.dlc = bpsTrip_DLC;
-	newFrame.Data[0] = addr >> 8;
-	newFrame.Data[1] = addr & 0xf;
-	for(int i=0; i<4; i++){
-		newFrame.Data[5-i] = (value >> (8*i)) & 0xff;	// Convert uint32_t -> uint8_t
-	}
-	bxCan_sendFrame(&newFrame);
-	osDelay(1);
-//	for(;;);
-
-	//assert signal
-	HAL_GPIO_WritePin(BSD_GPIO_Port, BSD_Pin, RESET);
+void reportSwitches(uint32_t x){
+    Can_frame_t newFrame;
+    newFrame.dlc = 4;
+    newFrame.id = swPos;
+    newFrame.isExt = 0;
+    newFrame.isRemote = 0;
+    *(uint32_t*)newFrame.Data = x;
+    bxCan_sendFrame(&newFrame);
 }
+     
 
 uint8_t valToHex(uint8_t i){
 	return (i<=9 ? '0'+i : 'A'+i-10);

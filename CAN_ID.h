@@ -22,8 +22,8 @@
 #define MAX_CONN_WAIT_ATTEMPTS	10					// Max number of frames a node is allowed in CONNECTING state (frames)
 #define MAX_NODE_RESET_ATTEMPTS	 5					// Max number of times to attempt resetting a node
 
-#define SW_STATE_BITS	 0b111						// Bits of status word holding the state information
-#define SW_DATA_BITS	 0b11111000					// Bit of status word holding the data information
+#define SW_STATE_BITS	 0x7						// Bits of status word holding the state information
+#define SW_DATA_BITS	 0xf8					// Bit of status word holding the data information
 
 /* CAN NodeID and associated ID organizations
  * P2P ID: nodeID + p2pOffest
@@ -171,8 +171,8 @@ typedef enum {
 #define Log_Res_Frm2_FR1	0x08A50285
 
 #define Req_DLC				0x1
-#define Req_Frm0			0b001
-#define Req_Frm1			0b010
-#define Req_Frm2			0b100
+#define Req_Frm0			0x1
+#define Req_Frm1			0x2
+#define Req_Frm2			0x4
 
 #endif /* CAN_ID_H_ */

@@ -47,8 +47,10 @@ void setSelfState(nodeState newState);
 nodeState getSelfState();
 void soft_shutdown(void(*usr_clbk)());
 
-void assert_bps_fault(uint16_t addr, uint32_t value);
-void fault_save_data();
+
+uint32_t readSwitches();
+void reportSwitches(uint32_t x);
+
 
 uint8_t valToHex(uint8_t i);
 uint8_t HexToVal(uint8_t i);

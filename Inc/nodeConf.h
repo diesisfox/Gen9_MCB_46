@@ -39,13 +39,15 @@
 #define HB_Interval		1000		// Node heartbeat send interval	(soft ms)
 #define WD_Interval		16			// Watdog timer refresh interval (soft ms) | MUST BE LESS THAN 26!!!
 
-#define RT_Interval		50
-#define SMT_Interval	1000
-#define TMT_Interval	500
+#define Switch_Interval     10
 
-#define RT_Broadcast	20			//Multiplier of RT_Interval
 
-#define FToffset		0x0d0
+typedef enum{
+    LEFT_SIG_SWITCH,
+    RIGHT_SIG_SWITCH,
+    HAZARD_SWITCH,
+} SwitchIndex_t;
+
 
 static const uint32_t firmwareString = 0x00000001;			// Firmware Version string
 static const uint8_t selfNodeID = dcb_nodeID;					// The nodeID of this node
