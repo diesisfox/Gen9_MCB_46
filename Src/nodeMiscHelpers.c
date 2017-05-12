@@ -128,8 +128,6 @@ void soft_shutdown(void(*usr_clbk)()){
 	// TODO: Test if bxCan_sendFrame can successfully send the new frame and flush the queue
 }
 
-
-#define readSwitch(x) ((HAL_GPIO_ReadPin( x ## _GPIO_Port, x ## _Pin )?1:0)<< x )
    
 uint32_t readSwitches(){
     uint32_t retval = 0;

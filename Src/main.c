@@ -70,7 +70,6 @@ DMA_HandleTypeDef hdma_usart2_tx;
 WWDG_HandleTypeDef hwwdg;
 
 osThreadId Can_ProcessorHandle;
-osThreadId SigLightsHandle;
 osThreadId MotCanProcessorHandle;
 osThreadId Switch_ReaderHandle;
 osMessageQId mainCanTxQHandle;
@@ -78,6 +77,8 @@ osMessageQId mainCanRxQHandle;
 osMessageQId motCanRxQHandle;
 osTimerId WWDGTmrHandle;
 osTimerId HBTmrHandle;
+osTimerId LSigTmrHandle;
+osTimerId RSigTmrHandle;
 osMutexId swMtxHandle;
 
 /* USER CODE BEGIN PV */
@@ -95,11 +96,12 @@ static void MX_USART2_UART_Init(void);
 static void MX_WWDG_Init(void);
 static void MX_SPI3_Init(void);
 void doProcessCan(void const * argument);
-void doSigLights(void const * argument);
 void doMotCan(void const * argument);
 void doSwitches(void const * argument);
 void TmrKickDog(void const * argument);
 void TmrSendHB(void const * argument);
+void toggleLSig(void const * argument);
+void toggleRSig(void const * argument);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -163,6 +165,14 @@ int main(void)
   osTimerDef(HBTmr, TmrSendHB);
   HBTmrHandle = osTimerCreate(osTimer(HBTmr), osTimerPeriodic, NULL);
 
+  /* definition and creation of LSigTmr */
+  osTimerDef(LSigTmr, toggleLSig);
+  LSigTmrHandle = osTimerCreate(osTimer(LSigTmr), osTimerPeriodic, NULL);
+
+  /* definition and creation of RSigTmr */
+  osTimerDef(RSigTmr, toggleRSig);
+  RSigTmrHandle = osTimerCreate(osTimer(RSigTmr), osTimerPeriodic, NULL);
+
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
@@ -171,10 +181,6 @@ int main(void)
   /* definition and creation of Can_Processor */
   osThreadDef(Can_Processor, doProcessCan, osPriorityHigh, 0, 512);
   Can_ProcessorHandle = osThreadCreate(osThread(Can_Processor), NULL);
-
-  /* definition and creation of SigLights */
-  osThreadDef(SigLights, doSigLights, osPriorityBelowNormal, 0, 256);
-  SigLightsHandle = osThreadCreate(osThread(SigLights), NULL);
 
   /* definition and creation of MotCanProcessor */
   osThreadDef(MotCanProcessor, doMotCan, osPriorityAboveNormal, 0, 512);
@@ -542,18 +548,6 @@ void doProcessCan(void const * argument)
   /* USER CODE END 5 */ 
 }
 
-/* doSigLights function */
-void doSigLights(void const * argument)
-{
-  /* USER CODE BEGIN doSigLights */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END doSigLights */
-}
-
 /* doMotCan function */
 void doMotCan(void const * argument)
 {
@@ -575,8 +569,25 @@ void doSwitches(void const * argument)
   for(;;)
   {
     uint32_t currentState = readSwitches();
-    if(currentState != lastState) reportSwitches(currentState);
-    lastState = currentState;
+    if(currentState != lastState){
+        reportSwitches(currentState);
+        
+        if(currentState & 1<<HAZARD_SIG){   //hazard on
+            if(~lastState & 1<<HAZARD_SIG){     // hazard up edge
+                HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,1);
+                HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,1);
+                xTimerReset(LSigTmrHandle, portMAX_DELAY);
+                xTimerReset(RSigTmrHandle, portMAX_DELAY);
+            }
+        }else{      //hazard off
+            if(lastState & 1<<HAZARD_SIG){      // hazard down edge
+                if(~currentState & 1<<LEFT_LIGHT_SIG) xTImerStop(LSigTmrHandle, portMAX_DELAY);
+                if(~currentState & 1<<RIGHT_LIGHT_SIG) xTImerStop(RSigTmrHandle, portMAX_DELAY);
+            }
+        }
+            
+        lastState = currentState;
+    }
     osDelay(Switch_Interval);
   }
   /* USER CODE END doSwitches */
@@ -630,6 +641,22 @@ void TmrSendHB(void const * argument)
   }
   // No heartbeats sent in other states
   /* USER CODE END TmrSendHB */
+}
+
+/* toggleLSig function */
+void toggleLSig(void const * argument)
+{
+  /* USER CODE BEGIN toggleLSig */
+  
+  /* USER CODE END toggleLSig */
+}
+
+/* toggleRSig function */
+void toggleRSig(void const * argument)
+{
+  /* USER CODE BEGIN toggleRSig */
+  
+  /* USER CODE END toggleRSig */
 }
 
 /**

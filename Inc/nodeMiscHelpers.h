@@ -47,7 +47,7 @@ void setSelfState(nodeState newState);
 nodeState getSelfState();
 void soft_shutdown(void(*usr_clbk)());
 
-
+#define readSwitch(x) ((HAL_GPIO_ReadPin( x ## _GPIO_Port, x ## _Pin )?1:0)<< x )
 uint32_t readSwitches();
 void reportSwitches(uint32_t x);
 
