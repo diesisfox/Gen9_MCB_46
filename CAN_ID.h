@@ -121,6 +121,7 @@ typedef enum {
 // Radio Received Commands
 #define remoteSD		0x30		// Radio controlled car shutdown (soft)
 #define setSpeed		0x31		// Set target cruise speed
+#define cmdAck          0x3f        // Received command Ack'd by driver
 
 // Motor Controller Diagnostics
 #define mcDiag0			0x190		// 3 Diagnostic frames starting at 0x190

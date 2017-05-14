@@ -83,7 +83,7 @@ osMutexId swMtxHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+uint8_t ackPressed = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -105,6 +105,15 @@ void toggleRSig(void const * argument);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+    switch(GPIO_Pin){
+    case ACK_BTN_Pin:
+        ackPressed = 1;
+        break;
+    default:
+        break;
+    }
+}
 
 /* USER CODE END PFP */
 
@@ -175,6 +184,12 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
+  xTimerChangePeriod(LSigTmrHandle,Turn_sig_Interval,portMAX_DELAY);
+  xTimerStop(LSigTmrHandle,portMAX_DELAY);
+  xTimerChangePeriod(RSigTmrHandle,Turn_sig_Interval,portMAX_DELAY);
+  xTimerStop(RSigTmrHandle,portMAX_DELAY);
+  osTimerStart(WWDGTmrHandle, WD_Interval);
+  osTimerStart(HBTmrHandle, HB_Interval);
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the thread(s) */
@@ -451,9 +466,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LEFT_SIG_SWITCH_Pin SCREEN_L_BTN_Pin SCREEN_R_BTN_Pin ACK_BTN_Pin */
-  GPIO_InitStruct.Pin = LEFT_SIG_SWITCH_Pin|SCREEN_L_BTN_Pin|SCREEN_R_BTN_Pin|ACK_BTN_Pin;
+  /*Configure GPIO pin : LEFT_SIG_SWITCH_Pin */
+  GPIO_InitStruct.Pin = LEFT_SIG_SWITCH_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(LEFT_SIG_SWITCH_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : SCREEN_L_BTN_Pin SCREEN_R_BTN_Pin */
+  GPIO_InitStruct.Pin = SCREEN_L_BTN_Pin|SCREEN_R_BTN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
@@ -486,10 +507,16 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : ACK_BTN_Pin */
+  GPIO_InitStruct.Pin = ACK_BTN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(ACK_BTN_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pins : BRK_SWITCH_Pin RIGHT_SIG_SWITCH_Pin HAZARD_SWITCH_Pin */
   GPIO_InitStruct.Pin = BRK_SWITCH_Pin|RIGHT_SIG_SWITCH_Pin|HAZARD_SWITCH_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PB1 PB2 PB10 PB12 
@@ -521,6 +548,15 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(BRK_LIGHT_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
@@ -555,7 +591,7 @@ void doMotCan(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osDelay(10000);
   }
   /* USER CODE END doMotCan */
 }
@@ -569,23 +605,53 @@ void doSwitches(void const * argument)
   for(;;)
   {
     uint32_t currentState = readSwitches();
+    
+    if(ackPressed){     //check ack
+        sendAckPressed();
+        ackPressed = 0;
+    }
+    
     if(currentState != lastState){
         reportSwitches(currentState);
         
-        if(currentState & 1<<HAZARD_SIG){   //hazard on
-            if(~lastState & 1<<HAZARD_SIG){     // hazard up edge
-                HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,1);
-                HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,1);
+        if(currentState & 1<<HAZARD_SWITCH){   //hazard on
+            if(~lastState & 1<<HAZARD_SWITCH){     // hazard up edge
+                HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_SET);
+                HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_SET);
                 xTimerReset(LSigTmrHandle, portMAX_DELAY);
                 xTimerReset(RSigTmrHandle, portMAX_DELAY);
             }
         }else{      //hazard off
-            if(lastState & 1<<HAZARD_SIG){      // hazard down edge
-                if(~currentState & 1<<LEFT_LIGHT_SIG) xTImerStop(LSigTmrHandle, portMAX_DELAY);
-                if(~currentState & 1<<RIGHT_LIGHT_SIG) xTImerStop(RSigTmrHandle, portMAX_DELAY);
+            if(lastState & 1<<HAZARD_SWITCH){      // hazard down edge
+                if(~currentState & 1<<LEFT_SIG_SWITCH){
+                    xTimerStop(LSigTmrHandle, portMAX_DELAY);
+                    HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_RESET);
+                }
+                if(~currentState & 1<<RIGHT_SIG_SWITCH){
+                    xTimerStop(RSigTmrHandle, portMAX_DELAY);
+                    HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_RESET);
+                }
+            }
+            if(currentState & 1<<LEFT_SIG_SWITCH && ~lastState & 1<<LEFT_SIG_SWITCH){   //left up edge
+                HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_SET);
+                xTimerReset(LSigTmrHandle, portMAX_DELAY);
+            }else if(~currentState & 1<<LEFT_SIG_SWITCH && lastState & 1<<LEFT_SIG_SWITCH){   //left down edge
+                HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_RESET);
+                xTimerStop(LSigTmrHandle, portMAX_DELAY);   //left light is more important than right light
+            }else if(currentState & 1<<RIGHT_SIG_SWITCH && ~lastState & 1<<RIGHT_SIG_SWITCH){   //right up edge
+                HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_SET);
+                xTimerReset(RSigTmrHandle, portMAX_DELAY);
+            }else if(~currentState & 1<<RIGHT_SIG_SWITCH && lastState & 1<<RIGHT_SIG_SWITCH){   //right down edge
+                HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_RESET);
+                xTimerStop(RSigTmrHandle, portMAX_DELAY);
             }
         }
-            
+        
+        if(currentState & 1<<BRK_SWITCH){       //break light
+            HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_SET);
+        }else{
+            HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_RESET);
+        }
         lastState = currentState;
     }
     osDelay(Switch_Interval);
@@ -647,7 +713,7 @@ void TmrSendHB(void const * argument)
 void toggleLSig(void const * argument)
 {
   /* USER CODE BEGIN toggleLSig */
-  
+  HAL_GPIO_TogglePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin);
   /* USER CODE END toggleLSig */
 }
 
@@ -655,7 +721,7 @@ void toggleLSig(void const * argument)
 void toggleRSig(void const * argument)
 {
   /* USER CODE BEGIN toggleRSig */
-  
+  HAL_GPIO_TogglePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin);
   /* USER CODE END toggleRSig */
 }
 

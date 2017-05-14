@@ -134,6 +134,7 @@ uint32_t readSwitches(){
     retval |= readSwitch(LEFT_SIG_SWITCH);
     retval |= readSwitch(RIGHT_SIG_SWITCH);
     retval |= readSwitch(HAZARD_SWITCH);
+    retval |= readSwitch(BRK_SWITCH);
     return retval;
 }
 
@@ -144,6 +145,15 @@ void reportSwitches(uint32_t x){
     newFrame.isExt = 0;
     newFrame.isRemote = 0;
     *(uint32_t*)newFrame.Data = x;
+    bxCan_sendFrame(&newFrame);
+}
+
+void sendAckPressed(){
+    Can_frame_t newFrame;
+    newFrame.dlc = 0;
+    newFrame.id = cmdAck;
+    newFrame.isExt = 0;
+    newFrame.isRemote = 0;
     bxCan_sendFrame(&newFrame);
 }
      
