@@ -106,7 +106,8 @@ typedef enum {
 #define UsrEMSD			0x11		// User emergency shutdown (Hard)
 #define bpsTrip			0x12		// BPS Trip condition (soft)
 #define bpsTrip_DLC		6
-#define mcFault			0x13		// Motor controller fault
+#define mcError			0x13		// Motor controller reported error
+#define mcError_DLC		3
 
 // Car Control Variables
 #define swPos			0x21		// DCI Switch positions
@@ -125,7 +126,9 @@ typedef enum {
 
 // Motor Controller Diagnostics
 #define mcDiag0			0x190		// 3 Diagnostic frames starting at 0x190
+#define mcDiag0_DLC		8
 #define mcDiag1			0x191
+#define mcDiag1_DLC		5
 #define mcDiag2			0x192
 
 // Energy metering variables

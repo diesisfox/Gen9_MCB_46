@@ -4,37 +4,37 @@
   * Description        : Main program body
   ******************************************************************************
   *
-  * Copyright (c) 2017 STMicroelectronics International N.V. 
+  * Copyright (c) 2017 STMicroelectronics International N.V.
   * All rights reserved.
   *
-  * Redistribution and use in source and binary forms, with or without 
+  * Redistribution and use in source and binary forms, with or without
   * modification, are permitted, provided that the following conditions are met:
   *
-  * 1. Redistribution of source code must retain the above copyright notice, 
+  * 1. Redistribution of source code must retain the above copyright notice,
   *    this list of conditions and the following disclaimer.
   * 2. Redistributions in binary form must reproduce the above copyright notice,
   *    this list of conditions and the following disclaimer in the documentation
   *    and/or other materials provided with the distribution.
-  * 3. Neither the name of STMicroelectronics nor the names of other 
-  *    contributors to this software may be used to endorse or promote products 
+  * 3. Neither the name of STMicroelectronics nor the names of other
+  *    contributors to this software may be used to endorse or promote products
   *    derived from this software without specific written permission.
-  * 4. This software, including modifications and/or derivative works of this 
+  * 4. This software, including modifications and/or derivative works of this
   *    software, must execute solely and exclusively on microcontroller or
   *    microprocessor devices manufactured by or for STMicroelectronics.
-  * 5. Redistribution and use of this software other than as permitted under 
-  *    this license is void and will automatically terminate your rights under 
-  *    this license. 
+  * 5. Redistribution and use of this software other than as permitted under
+  *    this license is void and will automatically terminate your rights under
+  *    this license.
   *
-  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
-  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
-  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS"
+  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT
+  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
   * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
-  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
+  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT
   * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
   * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
-  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
-  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
+  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
   * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
@@ -106,13 +106,40 @@ void toggleRSig(void const * argument);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-    switch(GPIO_Pin){
-    case ACK_BTN_Pin:
-        ackPressed = 1;
-        break;
-    default:
-        break;
-    }
+	switch(GPIO_Pin){
+	case ACK_BTN_Pin:
+		ackPressed = 1;
+		break;
+	default:
+		break;
+	}
+}
+
+void HAL_CAN_TxCpltCallback(CAN_HandleTypeDef* hcan){
+	switch (hcan) {
+		case &hcan1:
+			CAN1_TxCpltCallback(hcan); break;
+		case &hcan2:
+			CAN2_TxCpltCallback(hcan); break;
+	}
+}
+
+void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan){
+	switch (hcan) {
+		case &hcan1:
+			CAN1_RxCpltCallback(hcan); break;
+		case &hcan2:
+			CAN2_RxCpltCallback(hcan); break;
+	}
+}
+
+void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan){
+	switch (hcan) {
+		case &hcan1:
+			CAN1_ErrorCallback(hcan); break;
+		case &hcan2:
+			CAN2_ErrorCallback(hcan); break;
+	}
 }
 
 /* USER CODE END PFP */
@@ -150,6 +177,9 @@ int main(void)
 
 	bxCan_begin(&hcan1, &mainCanRxQHandle, &mainCanTxQHandle);
 	bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0);
+
+	// bxCan2_begin(&hcan2, &motCanRxQHandle, &mainCanTxQHandle);
+	// bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0);
   /* USER CODE END 2 */
 
   /* Create the mutex(es) */
@@ -225,11 +255,11 @@ int main(void)
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
- 
+
 
   /* Start scheduler */
   osKernelStart();
-  
+
   /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
@@ -253,14 +283,14 @@ void SystemClock_Config(void)
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
 
-    /**Configure the main internal regulator output voltage 
-    */
+	/**Configure the main internal regulator output voltage
+	*/
   __HAL_RCC_PWR_CLK_ENABLE();
 
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-    /**Initializes the CPU, AHB and APB busses clocks 
-    */
+	/**Initializes the CPU, AHB and APB busses clocks
+	*/
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = 16;
@@ -273,13 +303,13 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLR = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-    Error_Handler();
+	Error_Handler();
   }
 
-    /**Initializes the CPU, AHB and APB busses clocks 
-    */
+	/**Initializes the CPU, AHB and APB busses clocks
+	*/
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+							  |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
@@ -287,15 +317,15 @@ void SystemClock_Config(void)
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
-    Error_Handler();
+	Error_Handler();
   }
 
-    /**Configure the Systick interrupt time 
-    */
+	/**Configure the Systick interrupt time
+	*/
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-    /**Configure the Systick 
-    */
+	/**Configure the Systick
+	*/
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
   /* SysTick_IRQn interrupt configuration */
@@ -320,7 +350,7 @@ static void MX_CAN1_Init(void)
   hcan1.Init.TXFP = DISABLE;
   if (HAL_CAN_Init(&hcan1) != HAL_OK)
   {
-    Error_Handler();
+	Error_Handler();
   }
 
 }
@@ -343,7 +373,7 @@ static void MX_CAN2_Init(void)
   hcan2.Init.TXFP = DISABLE;
   if (HAL_CAN_Init(&hcan2) != HAL_OK)
   {
-    Error_Handler();
+	Error_Handler();
   }
 
 }
@@ -366,7 +396,7 @@ static void MX_SPI3_Init(void)
   hspi3.Init.CRCPolynomial = 10;
   if (HAL_SPI_Init(&hspi3) != HAL_OK)
   {
-    Error_Handler();
+	Error_Handler();
   }
 
 }
@@ -385,7 +415,7 @@ static void MX_USART2_UART_Init(void)
   huart2.Init.OverSampling = UART_OVERSAMPLING_16;
   if (HAL_UART_Init(&huart2) != HAL_OK)
   {
-    Error_Handler();
+	Error_Handler();
   }
 
 }
@@ -401,15 +431,15 @@ static void MX_WWDG_Init(void)
   hwwdg.Init.EWIMode = WWDG_EWI_DISABLE;
   if (HAL_WWDG_Init(&hwwdg) != HAL_OK)
   {
-    Error_Handler();
+	Error_Handler();
   }
 
 }
 
-/** 
+/**
   * Enable DMA controller clock
   */
-static void MX_DMA_Init(void) 
+static void MX_DMA_Init(void)
 {
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
@@ -424,14 +454,14 @@ static void MX_DMA_Init(void)
 
 }
 
-/** Configure pins as 
-        * Analog 
-        * Input 
-        * Output
-        * EVENT_OUT
-        * EXTI
-        * Free pins are configured automatically as Analog (this feature is enabled through 
-        * the Code Generation settings)
+/** Configure pins as
+		* Analog
+		* Input
+		* Output
+		* EVENT_OUT
+		* EXTI
+		* Free pins are configured automatically as Analog (this feature is enabled through
+		* the Code Generation settings)
 */
 static void MX_GPIO_Init(void)
 {
@@ -478,10 +508,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA0 PA1 PA6 PA7 
-                           PA8 PA9 PA10 PA15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_6|GPIO_PIN_7 
-                          |GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_15;
+  /*Configure GPIO pins : PA0 PA1 PA6 PA7
+						   PA8 PA9 PA10 PA15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_6|GPIO_PIN_7
+						  |GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -519,10 +549,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB1 PB2 PB10 PB12 
-                           PB13 PB4 PB8 PB9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_10|GPIO_PIN_12 
-                          |GPIO_PIN_13|GPIO_PIN_4|GPIO_PIN_8|GPIO_PIN_9;
+  /*Configure GPIO pins : PB1 PB2 PB10 PB12
+						   PB13 PB4 PB8 PB9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_10|GPIO_PIN_12
+						  |GPIO_PIN_13|GPIO_PIN_4|GPIO_PIN_8|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
@@ -581,7 +611,7 @@ void doProcessCan(void const * argument)
 	  osDelay(10000);
 #endif
   }
-  /* USER CODE END 5 */ 
+  /* USER CODE END 5 */
 }
 
 /* doMotCan function */
@@ -591,7 +621,7 @@ void doMotCan(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(10000);
+	osDelay(10000);
   }
   /* USER CODE END doMotCan */
 }
@@ -600,61 +630,61 @@ void doMotCan(void const * argument)
 void doSwitches(void const * argument)
 {
   /* USER CODE BEGIN doSwitches */
-    uint32_t lastState = 0;
+	uint32_t lastState = 0;
   /* Infinite loop */
   for(;;)
   {
-    uint32_t currentState = readSwitches();
-    
-    if(ackPressed){     //check ack
-        sendAckPressed();
-        ackPressed = 0;
-    }
-    
-    if(currentState != lastState){
-        reportSwitches(currentState);
-        
-        if(currentState & 1<<HAZARD_SWITCH){   //hazard on
-            if(~lastState & 1<<HAZARD_SWITCH){     // hazard up edge
-                HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_SET);
-                HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_SET);
-                xTimerReset(LSigTmrHandle, portMAX_DELAY);
-                xTimerReset(RSigTmrHandle, portMAX_DELAY);
-            }
-        }else{      //hazard off
-            if(lastState & 1<<HAZARD_SWITCH){      // hazard down edge
-                if(~currentState & 1<<LEFT_SIG_SWITCH){
-                    xTimerStop(LSigTmrHandle, portMAX_DELAY);
-                    HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_RESET);
-                }
-                if(~currentState & 1<<RIGHT_SIG_SWITCH){
-                    xTimerStop(RSigTmrHandle, portMAX_DELAY);
-                    HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_RESET);
-                }
-            }
-            if(currentState & 1<<LEFT_SIG_SWITCH && ~lastState & 1<<LEFT_SIG_SWITCH){   //left up edge
-                HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_SET);
-                xTimerReset(LSigTmrHandle, portMAX_DELAY);
-            }else if(~currentState & 1<<LEFT_SIG_SWITCH && lastState & 1<<LEFT_SIG_SWITCH){   //left down edge
-                HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_RESET);
-                xTimerStop(LSigTmrHandle, portMAX_DELAY);   //left light is more important than right light
-            }else if(currentState & 1<<RIGHT_SIG_SWITCH && ~lastState & 1<<RIGHT_SIG_SWITCH){   //right up edge
-                HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_SET);
-                xTimerReset(RSigTmrHandle, portMAX_DELAY);
-            }else if(~currentState & 1<<RIGHT_SIG_SWITCH && lastState & 1<<RIGHT_SIG_SWITCH){   //right down edge
-                HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_RESET);
-                xTimerStop(RSigTmrHandle, portMAX_DELAY);
-            }
-        }
-        
-        if(currentState & 1<<BRK_SWITCH){       //break light
-            HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_SET);
-        }else{
-            HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_RESET);
-        }
-        lastState = currentState;
-    }
-    osDelay(Switch_Interval);
+	uint32_t currentState = readSwitches();
+
+	if(ackPressed){     //check ack
+		sendAckPressed();
+		ackPressed = 0;
+	}
+
+	if(currentState != lastState){
+		reportSwitches(currentState);
+
+		if(currentState & 1<<HAZARD_SWITCH){   //hazard on
+			if(~lastState & 1<<HAZARD_SWITCH){     // hazard up edge
+				HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_SET);
+				HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_SET);
+				xTimerReset(LSigTmrHandle, portMAX_DELAY);
+				xTimerReset(RSigTmrHandle, portMAX_DELAY);
+			}
+		}else{      //hazard off
+			if(lastState & 1<<HAZARD_SWITCH){      // hazard down edge
+				if(~currentState & 1<<LEFT_SIG_SWITCH){
+					xTimerStop(LSigTmrHandle, portMAX_DELAY);
+					HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_RESET);
+				}
+				if(~currentState & 1<<RIGHT_SIG_SWITCH){
+					xTimerStop(RSigTmrHandle, portMAX_DELAY);
+					HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_RESET);
+				}
+			}
+			if(currentState & 1<<LEFT_SIG_SWITCH && ~lastState & 1<<LEFT_SIG_SWITCH){   //left up edge
+				HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_SET);
+				xTimerReset(LSigTmrHandle, portMAX_DELAY);
+			}else if(~currentState & 1<<LEFT_SIG_SWITCH && lastState & 1<<LEFT_SIG_SWITCH){   //left down edge
+				HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_RESET);
+				xTimerStop(LSigTmrHandle, portMAX_DELAY);   //left light is more important than right light
+			}else if(currentState & 1<<RIGHT_SIG_SWITCH && ~lastState & 1<<RIGHT_SIG_SWITCH){   //right up edge
+				HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_SET);
+				xTimerReset(RSigTmrHandle, portMAX_DELAY);
+			}else if(~currentState & 1<<RIGHT_SIG_SWITCH && lastState & 1<<RIGHT_SIG_SWITCH){   //right down edge
+				HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_RESET);
+				xTimerStop(RSigTmrHandle, portMAX_DELAY);
+			}
+		}
+
+		if(currentState & 1<<BRK_SWITCH){       //break light
+			HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_SET);
+		}else{
+			HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_RESET);
+		}
+		lastState = currentState;
+	}
+	osDelay(Switch_Interval);
   }
   /* USER CODE END doSwitches */
 }
@@ -680,30 +710,30 @@ void TmrSendHB(void const * argument)
   // ^ is initialized as 0
 
   if(getSelfState() == ACTIVE){
-  	// Assemble new heartbeat frame
-  	newFrame.id = selfNodeID + swOffset;
-  	newFrame.dlc = CAN_HB_DLC;
-  	for(int i=0; i<4; i++){
-  		newFrame.Data[3-i] = (selfStatusWord >> (8*i)) & 0xff;			// Convert uint32_t -> uint8_t
-  	}
-  	bxCan_sendFrame(&newFrame);
-  	#ifdef DEBUG
-  		static uint8_t hbmsg[] = "Heartbeat issued\n";
-  		Serial2_writeBytes(hbmsg, sizeof(hbmsg)-1);
-  	#endif
+	  // Assemble new heartbeat frame
+	  newFrame.id = selfNodeID + swOffset;
+	  newFrame.dlc = CAN_HB_DLC;
+	  for(int i=0; i<4; i++){
+		  newFrame.Data[3-i] = (selfStatusWord >> (8*i)) & 0xff;			// Convert uint32_t -> uint8_t
+	  }
+	  bxCan_sendFrame(&newFrame);
+	  #ifdef DEBUG
+		  static uint8_t hbmsg[] = "Heartbeat issued\n";
+		  Serial2_writeBytes(hbmsg, sizeof(hbmsg)-1);
+	  #endif
   }
   else if (getSelfState() == INIT){
-  	// Assemble new addition request (firmware version) frame
-  	newFrame.id = selfNodeID + fwOffset;
-  	newFrame.dlc = CAN_FW_DLC;
-  	for(int i=0; i<4; i++){
-  		newFrame.Data[3-i] = (firmwareString >> (8*i)) & 0xff;			// Convert uint32_t -> uint8_t
-  	}
-  	bxCan_sendFrame(&newFrame);
-  	#ifdef DEBUG
-  		static uint8_t hbmsg[] = "Init handshake issued\n";
-  		Serial2_writeBytes(hbmsg, sizeof(hbmsg)-1);
-  	#endif
+	  // Assemble new addition request (firmware version) frame
+	  newFrame.id = selfNodeID + fwOffset;
+	  newFrame.dlc = CAN_FW_DLC;
+	  for(int i=0; i<4; i++){
+		  newFrame.Data[3-i] = (firmwareString >> (8*i)) & 0xff;			// Convert uint32_t -> uint8_t
+	  }
+	  bxCan_sendFrame(&newFrame);
+	  #ifdef DEBUG
+		  static uint8_t hbmsg[] = "Init handshake issued\n";
+		  Serial2_writeBytes(hbmsg, sizeof(hbmsg)-1);
+	  #endif
   }
   // No heartbeats sent in other states
   /* USER CODE END TmrSendHB */
@@ -739,7 +769,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 /* USER CODE END Callback 0 */
   if (htim->Instance == TIM6) {
-    HAL_IncTick();
+	HAL_IncTick();
   }
 /* USER CODE BEGIN Callback 1 */
 
@@ -758,7 +788,7 @@ void Error_Handler(void)
   while(1)
   {
   }
-  /* USER CODE END Error_Handler */ 
+  /* USER CODE END Error_Handler */
 }
 
 #ifdef USE_FULL_ASSERT
@@ -774,7 +804,7 @@ void assert_failed(uint8_t* file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
-    ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+	ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 
 }
@@ -783,10 +813,10 @@ void assert_failed(uint8_t* file, uint32_t line)
 
 /**
   * @}
-  */ 
+  */
 
 /**
   * @}
-*/ 
+*/
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

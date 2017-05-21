@@ -50,9 +50,9 @@ int bxCan_availableForTx();
 uint32_t bxCanDoTx(uint8_t fromISR);
 int bxCan_sendFrame(Can_frame_t *frame);
 
-void HAL_CAN_TxCpltCallback(CAN_HandleTypeDef* hcan);
-void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan);
-void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan);
+void CAN1_TxCpltCallback(CAN_HandleTypeDef* hcan);
+void CAN1_RxCpltCallback(CAN_HandleTypeDef* hcan);
+void CAN1_ErrorCallback(CAN_HandleTypeDef *hcan);
 
 void bxCan_setTxCallback(void(*pt)());
 void bxCan_setRxCallback(void(*pt)());
