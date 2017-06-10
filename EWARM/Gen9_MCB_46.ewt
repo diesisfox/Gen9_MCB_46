@@ -1171,7 +1171,13 @@
                 <name>$PROJ_DIR$\..\Src\can.c</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\Src\can2.c</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\Src\Can_Processor.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Src\firmwareTable.c</name>
             </file>
             <file>
                 <name>$PROJ_DIR$\..\Src\freertos.c</name>
@@ -1180,7 +1186,13 @@
                 <name>$PROJ_DIR$\..\Src\main.c</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\Src\Node_Manager.c</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\Src\nodeMiscHelpers.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Src\RT_Handler.c</name>
             </file>
             <file>
                 <name>$PROJ_DIR$\..\Src\serial.c</name>

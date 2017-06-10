@@ -122,7 +122,7 @@ int bxCan2_addMaskedFilterStd(uint16_t id, uint16_t mask, int isRemote){ //2 slo
 			Can_filters[i].FilterActivation = ENABLE;
 			Can_filters[i].FilterFIFOAssignment = 0;
 			Can_filters[i].BankNumber = i+1; //This one isn't even used us HAL...
-			Can_filters[i].FilterNumber = i;
+			Can_filters[i].FilterNumber = i+14;
 			Can_filters[i].FilterMode = 0; //0 for mask, 1 for list
 			Can_filters[i].FilterScale = 0; //0 for 16, 1 for 32
 			HAL_CAN_ConfigFilter(hcan2_handle, &Can_filters[i]);
@@ -146,7 +146,7 @@ int bxCan2_addMaskedFilterExt(uint32_t id, uint32_t mask, int isRemote){ //1 slo
 			Can_filters[i].FilterActivation = ENABLE;
 			Can_filters[i].FilterFIFOAssignment = 0;
 			Can_filters[i].BankNumber = i+1; //This one isn't even used us HAL...
-			Can_filters[i].FilterNumber = i;
+			Can_filters[i].FilterNumber = i+14;
 			Can_filters[i].FilterMode = 0; //0 for mask, 1 for list
 			Can_filters[i].FilterScale = 1; //0 for 16, 1 for 32
 			HAL_CAN_ConfigFilter(hcan2_handle, &Can_filters[i]);
@@ -192,7 +192,7 @@ int bxCan2_addFilterStd(uint16_t id, uint8_t isRemote){ //4 slots per bank
 			Can_filters[i].FilterActivation = ENABLE;
 			Can_filters[i].FilterFIFOAssignment = 0;
 			Can_filters[i].BankNumber = i+1; //This one isn't even used us HAL...
-			Can_filters[i].FilterNumber = i;
+			Can_filters[i].FilterNumber = i+14;
 			Can_filters[i].FilterMode = 1; //0 for mask, 1 for list
 			Can_filters[i].FilterScale = 0; //0 for 16, 1 for 32
 			HAL_CAN_ConfigFilter(hcan2_handle, &Can_filters[i]);
@@ -235,7 +235,7 @@ int bxCan2_addFilterExt(uint32_t id, uint8_t isRemote){ //2 slots per bank
 			Can_filters[i].FilterActivation = ENABLE;
 			Can_filters[i].FilterFIFOAssignment = 0;
 			Can_filters[i].BankNumber = i+1; //This one isn't even used us HAL...
-			Can_filters[i].FilterNumber = i;
+			Can_filters[i].FilterNumber = i+14;
 			Can_filters[i].FilterMode = 1; //0 for mask, 1 for list
 			Can_filters[i].FilterScale = 1; //0 for 16, 1 for 32
 			HAL_CAN_ConfigFilter(hcan2_handle, &Can_filters[i]);
@@ -341,7 +341,7 @@ int bxCan2_getFilterNum(uint32_t fmi){
 /* CHECKED
  * Check if bxCan2 is ready for transmission
  */
-int Can_availableForTx(){
+int Can2_availableForTx(){
 	if((hcan2_handle->State == HAL_CAN_STATE_READY) || (hcan2_handle->State == HAL_CAN_STATE_BUSY_RX0)){
 		return 1;
 	}
@@ -357,7 +357,7 @@ int Can_availableForTx(){
  * Return: HAL bxCan2 Error code (refer to stm32l4xx_hal_can.h)
  */
 uint32_t bxCan2DoTx(uint8_t fromISR){
-	if(Can_availableForTx() && not_in_use && (fromISR ? \
+	if(Can2_availableForTx() && not_in_use && (fromISR ? \
 			uxQueueMessagesWaitingFromISR(*txQ) : \
 			uxQueueMessagesWaiting(*txQ))){
 		not_in_use = 0;		// bxCan2 is now in use
@@ -419,9 +419,9 @@ int bxCan2_sendFrame(Can_frame_t *frame){
  * Ultimately try to clear the Tx Q
  */
 void CAN2_TxCpltCallback(CAN_HandleTypeDef* hcan){
-	bxCan_Txcb();		// Any user-defined bxCAN txCallback goes here
+	bxCan2_Txcb();		// Any user-defined bxCAN txCallback goes here
 	not_in_use = 1;		// Transmission is complete, bxCAN not in use
-	bxCanDoTx(1);		// Execute the transmission function again; try to clear the Tx Q
+	bxCan2DoTx(1);		// Execute the transmission function again; try to clear the Tx Q
 }
 
 /* CHEKCED
@@ -439,7 +439,7 @@ void CAN2_RxCpltCallback(CAN_HandleTypeDef* hcan){
 	} else {
 		received.id = rxFrameBuf.StdId;
 	}
-	received.filterNum = bxCan_getFilterNum(rxFrameBuf.FMI);
+	received.filterNum = bxCan2_getFilterNum(rxFrameBuf.FMI);
 	received.dlc = rxFrameBuf.DLC;
 	for(uint8_t i = 0; i < 8 ;i++){
 		received.Data[i] = rxFrameBuf.Data[i];
@@ -447,7 +447,7 @@ void CAN2_RxCpltCallback(CAN_HandleTypeDef* hcan){
 	// Enqueue the received frame to the Rx Q; no higher priority task running after ISR
 	xQueueSendFromISR(*rxQ, &received, NULL);
 
-	bxCan_Rxcb();	// User-defined receive callback
+	bxCan2_Rxcb();	// User-defined receive callback
 	HAL_CAN_Receive_IT(hcan2_handle, 0);
 }
 
@@ -456,8 +456,8 @@ void CAN2_RxCpltCallback(CAN_HandleTypeDef* hcan){
  * Passes the CAN Error code as argument
  */
 void CAN2_ErrorCallback(CAN_HandleTypeDef *hcan){
-    if(bxCan_Ercb){
-        bxCan_Ercb(HAL_CAN_GetError(hcan));
+    if(bxCan2_Ercb){
+        bxCan2_Ercb(HAL_CAN_GetError(hcan));
     }
     if(hcan->State == HAL_CAN_STATE_READY || hcan->State == HAL_CAN_STATE_BUSY_TX){
         HAL_CAN_Receive_IT(hcan, 0);

@@ -36,14 +36,40 @@
 #ifndef NODECONF_H_
 #define NODECONF_H_
 
+#include "cmsis_os.h"
+#include "stm32f4xx_hal.h"
+
 #define HB_Interval		1000		// Node heartbeat send interval	(soft ms)
 #define WD_Interval		16			// Watdog timer refresh interval (soft ms) | MUST BE LESS THAN 26!!!
+#define Node_HB_Interval	2*HB_Interval			// Node's maximum heartbeat interval time
+
+#define MAX_NODE_NUM	 		16		// Maximum number of nodes supported on this system
+#define MAX_NODERESET_ATTEMPTS	1		// Maximum number of retries CC will attempt before flagging node as HARD ERRORs
 
 
 static const uint32_t firmwareString = 0x00000001;			// Firmware Version string
 static const uint8_t selfNodeID = dcb_nodeID;					// The nodeID of this node
 extern uint32_t selfStatusWord;	// Initialize
 #define NODE_CONFIGURED
+
+typedef struct {
+	uint8_t	 nodeConnectionState;
+	uint32_t nodeFirmwareVersion;
+	uint32_t nodeStatusWord;
+} nodeEntry;
+
+typedef struct {
+	uint16_t switchPositions;
+	float	 brakePosition;
+	float	 accelPosition;
+	float	 regenPosition;
+} controlVars;
+
+typedef struct{
+	uint8_t  nodeID;
+	uint8_t	 attempts;
+	uint32_t ticks;
+} resetParams;
 
 
 #endif /* NODECONF_H_ */

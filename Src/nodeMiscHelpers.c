@@ -12,7 +12,6 @@ extern osMutexId 	swMtxHandle;
 extern osMessageQId mainCanTxQHandle;
 extern osMessageQId mainCanRxQHandle;
 extern osMessageQId motCanTxQHandle;
-extern osTimerId 	HBTmrHandle;
 extern osMessageQId motCanRxQHandle;
 extern nodeEntry *  nodeTable;
 extern const uint32_t *const acceptedFirmware;
@@ -38,7 +37,6 @@ void executeCommand(uint8_t cmd){
 	case NODE_SHUTDOWN:
 		if((selfState == ACTIVE) || (selfState == INIT)){
 			node_shutdown();						// Soft shutdown if node is active
-			xTimerStop(HBTmrHandle, 0);	// Stop the heartbeat timer
 
 			// XXX 4: User must suspend any additional application tasks
 			// xTaskSuspend(ApplicationHandle);		// Suspend any active non-CAN tasks
@@ -54,8 +52,6 @@ void executeCommand(uint8_t cmd){
 			xQueueReset(motCanTxQHandle);
 			// XXX 2: Flush the application queues!
 			// xQueueReset();
-
-			xTimerReset(HBTmrHandle,portMAX_DELAY);	// Start the heartbeat timer
 
 			// XXX 3: User must resume additional application tasks
 			// xTaskResume(ApplicationHandle);			// Resume any application tasks

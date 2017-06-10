@@ -637,30 +637,27 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 }
 
 void HAL_CAN_TxCpltCallback(CAN_HandleTypeDef* hcan){
-	switch (hcan) {
-		case &hcan1:
-			CAN1_TxCpltCallback(hcan); break;
-		case &hcan2:
-			CAN2_TxCpltCallback(hcan); break;
-	}
+  if(hcan==&hcan1){
+    CAN1_TxCpltCallback(hcan);
+  }else if(hcan==&hcan2){
+    CAN2_TxCpltCallback(hcan);
+  }
 }
 
 void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan){
-	switch (hcan) {
-		case &hcan1:
-			CAN1_RxCpltCallback(hcan); break;
-		case &hcan2:
-			CAN2_RxCpltCallback(hcan); break;
-	}
+  if(hcan==&hcan1){
+    CAN1_RxCpltCallback(hcan);
+  }else if(hcan==&hcan2){
+    CAN2_RxCpltCallback(hcan);
+  }
 }
 
 void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan){
-	switch (hcan) {
-		case &hcan1:
-			CAN1_ErrorCallback(hcan); break;
-		case &hcan2:
-			CAN2_ErrorCallback(hcan); break;
-	}
+  if(hcan==&hcan1){
+    CAN1_ErrorCallback(hcan);
+  }else if(hcan==&hcan2){
+    CAN2_ErrorCallback(hcan);
+  }
 }
 
 /* USER CODE END 4 */
