@@ -3,6 +3,11 @@
   * File Name          : main.c
   * Description        : Main program body
   ******************************************************************************
+  * This notice applies to any and all portions of this file
+  * that are not between comment pairs USER CODE BEGIN and
+  * USER CODE END. Other portions of this file, whether
+  * inserted by the user or by software development tools
+  * are owned by their respective copyright owners.
   *
   * Copyright (c) 2017 STMicroelectronics International N.V.
   * All rights reserved.
@@ -47,6 +52,7 @@
 
 /* USER CODE BEGIN Includes */
 #include "can.h"
+#include "can2.h"
 #include "serial.h"
 #include "nodeMiscHelpers.h"
 #include "nodeConf.h"
@@ -54,6 +60,7 @@
 
 // RTOS Task functions + helpers
 #include "Can_Processor.h"
+#include "Node_Manager.h"
 
 /* USER CODE END Includes */
 
@@ -72,14 +79,17 @@ WWDG_HandleTypeDef hwwdg;
 osThreadId Can_ProcessorHandle;
 osThreadId MotCanProcessorHandle;
 osThreadId Switch_ReaderHandle;
+osThreadId NodeManagerHandle;
 osMessageQId mainCanTxQHandle;
 osMessageQId mainCanRxQHandle;
 osMessageQId motCanRxQHandle;
+osMessageQId motCanTxQHandle;
+osMessageQId BadNodesQHandle;
 osTimerId WWDGTmrHandle;
-osTimerId HBTmrHandle;
 osTimerId LSigTmrHandle;
 osTimerId RSigTmrHandle;
 osMutexId swMtxHandle;
+osMutexId controlVarsMtxHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -88,7 +98,6 @@ uint8_t ackPressed = 0;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-void Error_Handler(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_CAN1_Init(void);
@@ -98,61 +107,32 @@ static void MX_SPI3_Init(void);
 void doProcessCan(void const * argument);
 void doMotCan(void const * argument);
 void doSwitches(void const * argument);
+void doNodeManager(void const * argument);
 void TmrKickDog(void const * argument);
-void TmrSendHB(void const * argument);
 void toggleLSig(void const * argument);
 void toggleRSig(void const * argument);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-	switch(GPIO_Pin){
-	case ACK_BTN_Pin:
-		ackPressed = 1;
-		break;
-	default:
-		break;
-	}
-}
-
-void HAL_CAN_TxCpltCallback(CAN_HandleTypeDef* hcan){
-	switch (hcan) {
-		case &hcan1:
-			CAN1_TxCpltCallback(hcan); break;
-		case &hcan2:
-			CAN2_TxCpltCallback(hcan); break;
-	}
-}
-
-void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan){
-	switch (hcan) {
-		case &hcan1:
-			CAN1_RxCpltCallback(hcan); break;
-		case &hcan2:
-			CAN2_RxCpltCallback(hcan); break;
-	}
-}
-
-void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan){
-	switch (hcan) {
-		case &hcan1:
-			CAN1_ErrorCallback(hcan); break;
-		case &hcan2:
-			CAN2_ErrorCallback(hcan); break;
-	}
-}
-
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
+void HAL_CAN_TxCpltCallback(CAN_HandleTypeDef* hcan);
+void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan);
+void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan);
+void TmrHBTimeout(void * argument);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-
+QueueHandle_t * nodeEntryMtxHandle = (QueueHandle_t[MAX_NODE_NUM]){0};
+osTimerId * nodeTmrHandle = (osTimerId[MAX_NODE_NUM]){0};			// Timer for each node's timeout timer
+nodeEntry * nodeTable = (nodeEntry[MAX_NODE_NUM]){0};
+controlVars userInput;
 /* USER CODE END 0 */
 
 int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	selfStatusWord = INIT;
+	selfStatusWord = ACTIVE;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -160,8 +140,16 @@ int main(void)
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
   /* Configure the system clock */
   SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
@@ -172,11 +160,17 @@ int main(void)
   MX_SPI3_Init();
 
   /* USER CODE BEGIN 2 */
+  setupNodeTable();
+  nodeTable[cc_nodeID].nodeStatusWord = ACTIVE;		// Set initial status to ACTIVE
+
   Serial2_begin();
 	Serial2_writeBuf("Booting... \n");
 
 	bxCan_begin(&hcan1, &mainCanRxQHandle, &mainCanTxQHandle);
 	bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0);
+	bxCan_addMaskedFilterStd(swOffset,0xFF0,0); // Filter: Status word group (ignore nodeID)
+    bxCan_addMaskedFilterStd(fwOffset,0xFF0,0); // Filter: Firmware version group (ignore nodeID)
+    bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0); // Filter: p2p command group (ignore nodeID)
 
 	// bxCan2_begin(&hcan2, &motCanRxQHandle, &mainCanTxQHandle);
 	// bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0);
@@ -187,8 +181,17 @@ int main(void)
   osMutexDef(swMtx);
   swMtxHandle = osMutexCreate(osMutex(swMtx));
 
+  /* definition and creation of controlVarsMtx */
+  osMutexDef(controlVarsMtx);
+  controlVarsMtxHandle = osMutexCreate(osMutex(controlVarsMtx));
+
   /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
+  // Node table entry mutex
+  // Every entry has a mutex that is associated with the nodeID
+  for(uint8_t i =0; i < MAX_NODE_NUM; i++){
+	  osMutexDef(i);
+	  nodeEntryMtxHandle[i] = (QueueHandle_t)osMutexCreate(osMutex(i));
+  }
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -199,10 +202,6 @@ int main(void)
   /* definition and creation of WWDGTmr */
   osTimerDef(WWDGTmr, TmrKickDog);
   WWDGTmrHandle = osTimerCreate(osTimer(WWDGTmr), osTimerPeriodic, NULL);
-
-  /* definition and creation of HBTmr */
-  osTimerDef(HBTmr, TmrSendHB);
-  HBTmrHandle = osTimerCreate(osTimer(HBTmr), osTimerPeriodic, NULL);
 
   /* definition and creation of LSigTmr */
   osTimerDef(LSigTmr, toggleLSig);
@@ -219,21 +218,39 @@ int main(void)
   xTimerChangePeriod(RSigTmrHandle,Turn_sig_Interval,portMAX_DELAY);
   xTimerStop(RSigTmrHandle,portMAX_DELAY);
   osTimerStart(WWDGTmrHandle, WD_Interval);
-  osTimerStart(HBTmrHandle, HB_Interval);
+
+  // Node heartbeat timeout timers
+//    for(uint8_t TmrID = 0; TmrID < MAX_NODE_NUM; TmrID++){
+//  	  osTimerDef(TmrID, TmrHBTimeout);
+//  	  // TODO: Consider passing the nodeTmrHandle+Offset or NULL
+//  	  nodeTmrHandle[TmrID] = osTimerCreate(osTimer(TmrID), osTimerOnce, (void*)TmrID);	// TmrID here is stored directly as a variable
+//  	  //DISCUSS changePeriod starts the damn timers...
+//  	  xTimerChangePeriod(nodeTmrHandle[TmrID], Node_HB_Interval, portMAX_DELAY);
+//  	  xTimerStop(nodeTmrHandle[TmrID], portMAX_DELAY);
+//  	  //TODO investigate the timer crashes
+//  	  // One-shot timer since it should be refreshed by the Can Processor upon node HB reception
+//    }     //fucktarded the macro oops
+	for(uint8_t TmrID = 0; TmrID < MAX_NODE_NUM; TmrID++){
+		nodeTmrHandle[TmrID] = xTimerCreate(NULL,Node_HB_Interval,pdFALSE,(void*)TmrID,TmrHBTimeout);
+	}
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the thread(s) */
   /* definition and creation of Can_Processor */
-  osThreadDef(Can_Processor, doProcessCan, osPriorityHigh, 0, 512);
+  osThreadDef(Can_Processor, doProcessCan, osPriorityAboveNormal, 0, 512);
   Can_ProcessorHandle = osThreadCreate(osThread(Can_Processor), NULL);
 
   /* definition and creation of MotCanProcessor */
-  osThreadDef(MotCanProcessor, doMotCan, osPriorityAboveNormal, 0, 512);
+  osThreadDef(MotCanProcessor, doMotCan, osPriorityNormal, 0, 512);
   MotCanProcessorHandle = osThreadCreate(osThread(MotCanProcessor), NULL);
 
   /* definition and creation of Switch_Reader */
-  osThreadDef(Switch_Reader, doSwitches, osPriorityLow, 0, 256);
+  osThreadDef(Switch_Reader, doSwitches, osPriorityLow, 0, 512);
   Switch_ReaderHandle = osThreadCreate(osThread(Switch_Reader), NULL);
+
+  /* definition and creation of NodeManager */
+  osThreadDef(NodeManager, doNodeManager, osPriorityBelowNormal, 0, 512);
+  NodeManagerHandle = osThreadCreate(osThread(NodeManager), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -251,6 +268,14 @@ int main(void)
   /* definition and creation of motCanRxQ */
   osMessageQDef(motCanRxQ, 32, Can_frame_t);
   motCanRxQHandle = osMessageCreate(osMessageQ(motCanRxQ), NULL);
+
+  /* definition and creation of motCanTxQ */
+  osMessageQDef(motCanTxQ, 16, Can_frame_t);
+  motCanTxQHandle = osMessageCreate(osMessageQ(motCanTxQ), NULL);
+
+  /* definition and creation of BadNodesQ */
+  osMessageQDef(BadNodesQ, 32, uint8_t);
+  BadNodesQHandle = osMessageCreate(osMessageQ(BadNodesQ), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -283,33 +308,32 @@ void SystemClock_Config(void)
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
 
-	/**Configure the main internal regulator output voltage
-	*/
+    /**Configure the main internal regulator output voltage
+    */
   __HAL_RCC_PWR_CLK_ENABLE();
 
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-	/**Initializes the CPU, AHB and APB busses clocks
-	*/
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = 16;
+    /**Initializes the CPU, AHB and APB busses clocks
+    */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
   RCC_OscInitStruct.PLL.PLLN = 160;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 7;
   RCC_OscInitStruct.PLL.PLLR = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-	Error_Handler();
+    _Error_Handler(__FILE__, __LINE__);
   }
 
-	/**Initializes the CPU, AHB and APB busses clocks
-	*/
+    /**Initializes the CPU, AHB and APB busses clocks
+    */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-							  |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
@@ -317,15 +341,15 @@ void SystemClock_Config(void)
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
-	Error_Handler();
+    _Error_Handler(__FILE__, __LINE__);
   }
 
-	/**Configure the Systick interrupt time
-	*/
+    /**Configure the Systick interrupt time
+    */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-	/**Configure the Systick
-	*/
+    /**Configure the Systick
+    */
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
   /* SysTick_IRQn interrupt configuration */
@@ -350,7 +374,7 @@ static void MX_CAN1_Init(void)
   hcan1.Init.TXFP = DISABLE;
   if (HAL_CAN_Init(&hcan1) != HAL_OK)
   {
-	Error_Handler();
+    _Error_Handler(__FILE__, __LINE__);
   }
 
 }
@@ -373,7 +397,7 @@ static void MX_CAN2_Init(void)
   hcan2.Init.TXFP = DISABLE;
   if (HAL_CAN_Init(&hcan2) != HAL_OK)
   {
-	Error_Handler();
+    _Error_Handler(__FILE__, __LINE__);
   }
 
 }
@@ -396,7 +420,7 @@ static void MX_SPI3_Init(void)
   hspi3.Init.CRCPolynomial = 10;
   if (HAL_SPI_Init(&hspi3) != HAL_OK)
   {
-	Error_Handler();
+    _Error_Handler(__FILE__, __LINE__);
   }
 
 }
@@ -415,7 +439,7 @@ static void MX_USART2_UART_Init(void)
   huart2.Init.OverSampling = UART_OVERSAMPLING_16;
   if (HAL_UART_Init(&huart2) != HAL_OK)
   {
-	Error_Handler();
+    _Error_Handler(__FILE__, __LINE__);
   }
 
 }
@@ -431,7 +455,7 @@ static void MX_WWDG_Init(void)
   hwwdg.Init.EWIMode = WWDG_EWI_DISABLE;
   if (HAL_WWDG_Init(&hwwdg) != HAL_OK)
   {
-	Error_Handler();
+    _Error_Handler(__FILE__, __LINE__);
   }
 
 }
@@ -455,13 +479,13 @@ static void MX_DMA_Init(void)
 }
 
 /** Configure pins as
-		* Analog
-		* Input
-		* Output
-		* EVENT_OUT
-		* EXTI
-		* Free pins are configured automatically as Analog (this feature is enabled through
-		* the Code Generation settings)
+        * Analog
+        * Input
+        * Output
+        * EVENT_OUT
+        * EXTI
+        * Free pins are configured automatically as Analog (this feature is enabled through
+        * the Code Generation settings)
 */
 static void MX_GPIO_Init(void)
 {
@@ -509,9 +533,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PA0 PA1 PA6 PA7
-						   PA8 PA9 PA10 PA15 */
+                           PA8 PA9 PA10 PA15 */
   GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_6|GPIO_PIN_7
-						  |GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_15;
+                          |GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -550,9 +574,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PB1 PB2 PB10 PB12
-						   PB13 PB4 PB8 PB9 */
+                           PB13 PB4 PB8 PB9 */
   GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_10|GPIO_PIN_12
-						  |GPIO_PIN_13|GPIO_PIN_4|GPIO_PIN_8|GPIO_PIN_9;
+                          |GPIO_PIN_13|GPIO_PIN_4|GPIO_PIN_8|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
@@ -593,6 +617,51 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void TmrHBTimeout(void * argument){
+	// TODO: Test if using point in the line below breaks this function
+	uint8_t timerID = (uint8_t)pvTimerGetTimerID((TimerHandle_t)argument);
+	nodeTable[timerID].nodeConnectionState = UNRELIABLE;
+	if((timerID) != mc_nodeID){
+		xQueueSend(BadNodesQHandle, &timerID, portMAX_DELAY);
+	}
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+	switch(GPIO_Pin){
+	case ACK_BTN_Pin:
+		ackPressed = 1;
+		break;
+	default:
+		break;
+	}
+}
+
+void HAL_CAN_TxCpltCallback(CAN_HandleTypeDef* hcan){
+	switch (hcan) {
+		case &hcan1:
+			CAN1_TxCpltCallback(hcan); break;
+		case &hcan2:
+			CAN2_TxCpltCallback(hcan); break;
+	}
+}
+
+void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan){
+	switch (hcan) {
+		case &hcan1:
+			CAN1_RxCpltCallback(hcan); break;
+		case &hcan2:
+			CAN2_RxCpltCallback(hcan); break;
+	}
+}
+
+void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan){
+	switch (hcan) {
+		case &hcan1:
+			CAN1_ErrorCallback(hcan); break;
+		case &hcan2:
+			CAN2_ErrorCallback(hcan); break;
+	}
+}
 
 /* USER CODE END 4 */
 
@@ -605,11 +674,7 @@ void doProcessCan(void const * argument)
   for(;;){
 	  // Wrapper function for the CAN Processing Logic
 	  // Handles all CAN Protocol Suite based responses and tasks
-#ifndef DISABLE_CAN
 	  Can_Processor();
-#else
-	  osDelay(10000);
-#endif
   }
   /* USER CODE END 5 */
 }
@@ -689,6 +754,19 @@ void doSwitches(void const * argument)
   /* USER CODE END doSwitches */
 }
 
+/* doNodeManager function */
+void doNodeManager(void const * argument)
+{
+  /* USER CODE BEGIN doNodeManager */
+  /* Infinite loop */
+  for(;;)
+  {
+	// Wrapper for the Node_Manager task
+    Node_Manager();
+  }
+  /* USER CODE END doNodeManager */
+}
+
 /* TmrKickDog function */
 void TmrKickDog(void const * argument)
 {
@@ -697,46 +775,6 @@ void TmrKickDog(void const * argument)
   HAL_WWDG_Refresh(&hwwdg);
   taskEXIT_CRITICAL();
   /* USER CODE END TmrKickDog */
-}
-
-/* TmrSendHB function */
-void TmrSendHB(void const * argument)
-{
-  /* USER CODE BEGIN TmrSendHB */
-  static Can_frame_t newFrame;
-
-  //	newFrame.isExt = 0;
-  //	newFrame.isRemote = 0;
-  // ^ is initialized as 0
-
-  if(getSelfState() == ACTIVE){
-	  // Assemble new heartbeat frame
-	  newFrame.id = selfNodeID + swOffset;
-	  newFrame.dlc = CAN_HB_DLC;
-	  for(int i=0; i<4; i++){
-		  newFrame.Data[3-i] = (selfStatusWord >> (8*i)) & 0xff;			// Convert uint32_t -> uint8_t
-	  }
-	  bxCan_sendFrame(&newFrame);
-	  #ifdef DEBUG
-		  static uint8_t hbmsg[] = "Heartbeat issued\n";
-		  Serial2_writeBytes(hbmsg, sizeof(hbmsg)-1);
-	  #endif
-  }
-  else if (getSelfState() == INIT){
-	  // Assemble new addition request (firmware version) frame
-	  newFrame.id = selfNodeID + fwOffset;
-	  newFrame.dlc = CAN_FW_DLC;
-	  for(int i=0; i<4; i++){
-		  newFrame.Data[3-i] = (firmwareString >> (8*i)) & 0xff;			// Convert uint32_t -> uint8_t
-	  }
-	  bxCan_sendFrame(&newFrame);
-	  #ifdef DEBUG
-		  static uint8_t hbmsg[] = "Init handshake issued\n";
-		  Serial2_writeBytes(hbmsg, sizeof(hbmsg)-1);
-	  #endif
-  }
-  // No heartbeats sent in other states
-  /* USER CODE END TmrSendHB */
 }
 
 /* toggleLSig function */
@@ -769,7 +807,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 /* USER CODE END Callback 0 */
   if (htim->Instance == TIM6) {
-	HAL_IncTick();
+    HAL_IncTick();
   }
 /* USER CODE BEGIN Callback 1 */
 
@@ -781,14 +819,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   * @param  None
   * @retval None
   */
-void Error_Handler(void)
+void _Error_Handler(char * file, int line)
 {
-  /* USER CODE BEGIN Error_Handler */
+  /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   while(1)
   {
   }
-  /* USER CODE END Error_Handler */
+  /* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef USE_FULL_ASSERT

@@ -3,6 +3,11 @@
   * File Name          : main.h
   * Description        : This file contains the common defines of the application
   ******************************************************************************
+  * This notice applies to any and all portions of this file
+  * that are not between comment pairs USER CODE BEGIN and
+  * USER CODE END. Other portions of this file, whether 
+  * inserted by the user or by software development tools
+  * are owned by their respective copyright owners.
   *
   * Copyright (c) 2017 STMicroelectronics International N.V. 
   * All rights reserved.
@@ -53,12 +58,15 @@
 
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
+#define B1_EXTI_IRQn EXTI15_10_IRQn
 #define LEFT_SIG_SWITCH_Pin GPIO_PIN_0
 #define LEFT_SIG_SWITCH_GPIO_Port GPIOC
 #define SCREEN_L_BTN_Pin GPIO_PIN_2
 #define SCREEN_L_BTN_GPIO_Port GPIOC
+#define SCREEN_L_BTN_EXTI_IRQn EXTI2_IRQn
 #define SCREEN_R_BTN_Pin GPIO_PIN_3
 #define SCREEN_R_BTN_GPIO_Port GPIOC
+#define SCREEN_R_BTN_EXTI_IRQn EXTI3_IRQn
 #define USART_TX_Pin GPIO_PIN_2
 #define USART_TX_GPIO_Port GPIOA
 #define USART_RX_Pin GPIO_PIN_3
@@ -71,6 +79,7 @@
 #define ENGAGE_LIGHT_GPIO_Port GPIOC
 #define ACK_BTN_Pin GPIO_PIN_5
 #define ACK_BTN_GPIO_Port GPIOC
+#define ACK_BTN_EXTI_IRQn EXTI9_5_IRQn
 #define BRK_SWITCH_Pin GPIO_PIN_0
 #define BRK_SWITCH_GPIO_Port GPIOB
 #define RIGHT_SIG_SWITCH_Pin GPIO_PIN_14
@@ -93,6 +102,10 @@
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
+
+void _Error_Handler(char *, int);
+
+#define Error_Handler() _Error_Handler(__FILE__, __LINE__)
 
 /**
   * @}

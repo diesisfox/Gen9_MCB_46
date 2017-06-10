@@ -4,6 +4,11 @@
   * Description        : This file provides code for the MSP Initialization 
   *                      and de-Initialization codes.
   ******************************************************************************
+  * This notice applies to any and all portions of this file
+  * that are not between comment pairs USER CODE BEGIN and
+  * USER CODE END. Other portions of this file, whether 
+  * inserted by the user or by software development tools
+  * are owned by their respective copyright owners.
   *
   * Copyright (c) 2017 STMicroelectronics International N.V. 
   * All rights reserved.
@@ -48,7 +53,7 @@ extern DMA_HandleTypeDef hdma_usart2_rx;
 
 extern DMA_HandleTypeDef hdma_usart2_tx;
 
-extern void Error_Handler(void);
+extern void _Error_Handler(char *, int);
 /* USER CODE BEGIN 0 */
 
 /* USER CODE END 0 */
@@ -112,7 +117,7 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
     GPIO_InitStruct.Alternate = GPIO_AF9_CAN1;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /* Peripheral interrupt init */
+    /* CAN1 interrupt Init */
     HAL_NVIC_SetPriority(CAN1_TX_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(CAN1_TX_IRQn);
     HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 5, 0);
@@ -148,7 +153,7 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
     GPIO_InitStruct.Alternate = GPIO_AF9_CAN2;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    /* Peripheral interrupt init */
+    /* CAN2 interrupt Init */
     HAL_NVIC_SetPriority(CAN2_TX_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(CAN2_TX_IRQn);
     HAL_NVIC_SetPriority(CAN2_RX0_IRQn, 5, 0);
@@ -173,10 +178,11 @@ void HAL_CAN_MspDeInit(CAN_HandleTypeDef* hcan)
 
   /* USER CODE END CAN1_MspDeInit 0 */
     /* Peripheral clock disable */
-    HAL_RCC_CAN1_CLK_ENABLED--;
-    if(HAL_RCC_CAN1_CLK_ENABLED==0){
-      __HAL_RCC_CAN1_CLK_DISABLE();
-    }
+    /* Be sure that all peripheral instances that share the same clock need to be disabled */
+    /**  HAL_RCC_CAN1_CLK_ENABLED--;
+    *  if(HAL_RCC_CAN1_CLK_ENABLED==0){
+    *    __HAL_RCC_CAN1_CLK_DISABLE();
+    **/
   
     /**CAN1 GPIO Configuration    
     PA11     ------> CAN1_RX
@@ -184,15 +190,11 @@ void HAL_CAN_MspDeInit(CAN_HandleTypeDef* hcan)
     */
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_11|GPIO_PIN_12);
 
-    /* Peripheral interrupt DeInit*/
+    /* CAN1 interrupt DeInit */
     HAL_NVIC_DisableIRQ(CAN1_TX_IRQn);
-
     HAL_NVIC_DisableIRQ(CAN1_RX0_IRQn);
-
     HAL_NVIC_DisableIRQ(CAN1_RX1_IRQn);
-
     HAL_NVIC_DisableIRQ(CAN1_SCE_IRQn);
-
   /* USER CODE BEGIN CAN1_MspDeInit 1 */
 
   /* USER CODE END CAN1_MspDeInit 1 */
@@ -204,10 +206,11 @@ void HAL_CAN_MspDeInit(CAN_HandleTypeDef* hcan)
   /* USER CODE END CAN2_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_CAN2_CLK_DISABLE();
-    HAL_RCC_CAN1_CLK_ENABLED--;
-    if(HAL_RCC_CAN1_CLK_ENABLED==0){
-      __HAL_RCC_CAN1_CLK_DISABLE();
-    }
+    /* Be sure that all peripheral instances that share the same clock need to be disabled */
+    /**  HAL_RCC_CAN1_CLK_ENABLED--;
+    *  if(HAL_RCC_CAN1_CLK_ENABLED==0){
+    *    __HAL_RCC_CAN1_CLK_DISABLE();
+    **/
   
     /**CAN2 GPIO Configuration    
     PB5     ------> CAN2_RX
@@ -215,15 +218,11 @@ void HAL_CAN_MspDeInit(CAN_HandleTypeDef* hcan)
     */
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_5|GPIO_PIN_6);
 
-    /* Peripheral interrupt DeInit*/
+    /* CAN2 interrupt DeInit */
     HAL_NVIC_DisableIRQ(CAN2_TX_IRQn);
-
     HAL_NVIC_DisableIRQ(CAN2_RX0_IRQn);
-
     HAL_NVIC_DisableIRQ(CAN2_RX1_IRQn);
-
     HAL_NVIC_DisableIRQ(CAN2_SCE_IRQn);
-
   /* USER CODE BEGIN CAN2_MspDeInit 1 */
 
   /* USER CODE END CAN2_MspDeInit 1 */
@@ -262,7 +261,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-    /* Peripheral interrupt init */
+    /* SPI3 interrupt Init */
     HAL_NVIC_SetPriority(SPI3_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(SPI3_IRQn);
   /* USER CODE BEGIN SPI3_MspInit 1 */
@@ -290,13 +289,12 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
     */
     HAL_GPIO_DeInit(GPIOC, GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_11);
 
-    /* Peripheral interrupt DeInit*/
+    /* SPI3 interrupt DeInit */
     HAL_NVIC_DisableIRQ(SPI3_IRQn);
-
-  }
   /* USER CODE BEGIN SPI3_MspDeInit 1 */
 
   /* USER CODE END SPI3_MspDeInit 1 */
+  }
 
 }
 
@@ -323,8 +321,8 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /* Peripheral DMA init*/
-  
+    /* USART2 DMA Init */
+    /* USART2_RX Init */
     hdma_usart2_rx.Instance = DMA1_Stream5;
     hdma_usart2_rx.Init.Channel = DMA_CHANNEL_4;
     hdma_usart2_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
@@ -337,11 +335,12 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     hdma_usart2_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
     if (HAL_DMA_Init(&hdma_usart2_rx) != HAL_OK)
     {
-      Error_Handler();
+      _Error_Handler(__FILE__, __LINE__);
     }
 
     __HAL_LINKDMA(huart,hdmarx,hdma_usart2_rx);
 
+    /* USART2_TX Init */
     hdma_usart2_tx.Instance = DMA1_Stream6;
     hdma_usart2_tx.Init.Channel = DMA_CHANNEL_4;
     hdma_usart2_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
@@ -354,12 +353,12 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     hdma_usart2_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
     if (HAL_DMA_Init(&hdma_usart2_tx) != HAL_OK)
     {
-      Error_Handler();
+      _Error_Handler(__FILE__, __LINE__);
     }
 
     __HAL_LINKDMA(huart,hdmatx,hdma_usart2_tx);
 
-    /* Peripheral interrupt init */
+    /* USART2 interrupt Init */
     HAL_NVIC_SetPriority(USART2_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(USART2_IRQn);
   /* USER CODE BEGIN USART2_MspInit 1 */
@@ -386,17 +385,16 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
     */
     HAL_GPIO_DeInit(GPIOA, USART_TX_Pin|USART_RX_Pin);
 
-    /* Peripheral DMA DeInit*/
+    /* USART2 DMA DeInit */
     HAL_DMA_DeInit(huart->hdmarx);
     HAL_DMA_DeInit(huart->hdmatx);
 
-    /* Peripheral interrupt DeInit*/
+    /* USART2 interrupt DeInit */
     HAL_NVIC_DisableIRQ(USART2_IRQn);
-
-  }
   /* USER CODE BEGIN USART2_MspDeInit 1 */
 
   /* USER CODE END USART2_MspDeInit 1 */
+  }
 
 }
 

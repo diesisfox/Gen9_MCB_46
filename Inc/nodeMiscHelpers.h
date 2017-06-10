@@ -17,6 +17,7 @@
 #include "can.h"
 #include "serial.h"
 #include "../../CAN_ID.h"
+#include "nodeConf.h"
 
 // Microsecond delay
 // Multiply by 20 for O2 and O3
@@ -60,12 +61,15 @@ typedef enum{
 
 #define readSwitch(x) ((HAL_GPIO_ReadPin( x ## _GPIO_Port, x ## _Pin )?1:0)<< x )
 uint32_t readSwitches();
+void setupNodeTable();
 void reportSwitches(uint32_t x);
 void sendAckPressed();
 
 
 uint8_t valToHex(uint8_t i);
 uint8_t HexToVal(uint8_t i);
+void bytesToReg(uint8_t * byte, uint32_t * reg);
+void regToBytes(uint32_t * reg, uint8_t * bytes);
 uint8_t intToDec(uint32_t input, uint8_t *str); //returns length. Only does positives.
 void intToHex(uint32_t input, uint8_t *str, int length);
 
