@@ -59,7 +59,7 @@ typedef enum{
     BRK_SWITCH,
 } SwitchIndex_t;
 
-#define readSwitch(x) ((HAL_GPIO_ReadPin( x ## _GPIO_Port, x ## _Pin )?1:0)<< x )
+#define readSwitch(x) ((HAL_GPIO_ReadPin( x ## _GPIO_Port, x ## _Pin )?0:1)<< x )
 uint32_t readSwitches();
 void setupNodeTable();
 void reportSwitches(uint32_t x);
