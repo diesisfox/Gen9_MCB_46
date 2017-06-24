@@ -1,13 +1,15 @@
 #MicroXplorer Configuration settings - do not modify
+CAN1.ABOM=ENABLE
 CAN1.BS1=CAN_BS1_13TQ
 CAN1.BS2=CAN_BS2_2TQ
 CAN1.CalculateTimeBit=2000
 CAN1.CalculateTimeQuantum=125.0
-CAN1.IPParameters=CalculateTimeQuantum,CalculateTimeBit,Prescaler,BS1,BS2
+CAN1.IPParameters=CalculateTimeQuantum,CalculateTimeBit,Prescaler,BS1,BS2,ABOM
 CAN1.Prescaler=5
+CAN2.ABOM=ENABLE
 CAN2.CalculateTimeBit=1200
 CAN2.CalculateTimeQuantum=400.0
-CAN2.IPParameters=CalculateTimeQuantum,CalculateTimeBit
+CAN2.IPParameters=CalculateTimeQuantum,CalculateTimeBit,ABOM
 Dma.Request0=USART2_RX
 Dma.Request1=USART2_TX
 Dma.RequestsNb=2

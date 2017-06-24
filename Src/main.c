@@ -367,7 +367,7 @@ static void MX_CAN1_Init(void)
   hcan1.Init.BS1 = CAN_BS1_13TQ;
   hcan1.Init.BS2 = CAN_BS2_2TQ;
   hcan1.Init.TTCM = DISABLE;
-  hcan1.Init.ABOM = DISABLE;
+  hcan1.Init.ABOM = ENABLE;
   hcan1.Init.AWUM = DISABLE;
   hcan1.Init.NART = DISABLE;
   hcan1.Init.RFLM = DISABLE;
@@ -390,7 +390,7 @@ static void MX_CAN2_Init(void)
   hcan2.Init.BS1 = CAN_BS1_1TQ;
   hcan2.Init.BS2 = CAN_BS2_1TQ;
   hcan2.Init.TTCM = DISABLE;
-  hcan2.Init.ABOM = DISABLE;
+  hcan2.Init.ABOM = ENABLE;
   hcan2.Init.AWUM = DISABLE;
   hcan2.Init.NART = DISABLE;
   hcan2.Init.RFLM = DISABLE;
