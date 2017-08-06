@@ -94,8 +94,6 @@
 #define RIGHT_LIGHT_GPIO_Port GPIOC
 #define LEFT_LIGHT_Pin GPIO_PIN_2
 #define LEFT_LIGHT_GPIO_Port GPIOD
-#define SWO_Pin GPIO_PIN_3
-#define SWO_GPIO_Port GPIOB
 #define BRK_LIGHT_Pin GPIO_PIN_7
 #define BRK_LIGHT_GPIO_Port GPIOB
 
