@@ -58,7 +58,7 @@ void motCan_Processor(){
 		case Log_Res_Frm2_RR1:
 		case Log_Res_Frm2_FL1:
 		case Log_Res_Frm2_FR1:
-			if(*(uint64_t*)inFrame.Data){}
+			if(*(uint64_t*)inFrame.Data){
 				MotCanFrm2_t * data = inFrame.Data;
 				denomuralize(inFrame.Data, newFrame.Data);
 				newFrame.id = mcError;
@@ -66,5 +66,8 @@ void motCan_Processor(){
 				bxCan_sendFrame(&newFrame);
 			}
 			break;
+		default:
+			break;
 	}
+	bxCan_sendFrame(&inFrame);
 }
