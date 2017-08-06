@@ -54,6 +54,7 @@
 #include "can.h"
 #include "can2.h"
 #include "serial.h"
+#include "oled2004.h"
 #include "nodeMiscHelpers.h"
 #include "nodeConf.h"
 #include "../../CAN_ID.h"
@@ -70,6 +71,8 @@ CAN_HandleTypeDef hcan1;
 CAN_HandleTypeDef hcan2;
 
 SPI_HandleTypeDef hspi3;
+DMA_HandleTypeDef hdma_spi3_rx;
+DMA_HandleTypeDef hdma_spi3_tx;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
@@ -95,6 +98,7 @@ osMutexId controlVarsMtxHandle;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 uint8_t ackPressed = 0;
+OLED_HandleTypeDef holed1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -163,6 +167,8 @@ int main(void)
   MX_SPI3_Init();
 
   /* USER CODE BEGIN 2 */
+	OLED_init(&holed1, &hspi3, SCREEN_CS_GPIO_Port, SCREEN_CS_Pin);
+
   setupNodeTable();
   nodeTable[cc_nodeID].nodeStatusWord = ACTIVE;		// Set initial status to ACTIVE
 
@@ -476,12 +482,18 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
   /* DMA1_Stream5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
   /* DMA1_Stream6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
+  /* DMA1_Stream7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream7_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream7_IRQn);
 
 }
 
@@ -689,6 +701,7 @@ void doProcessCan(void const * argument)
 void doMotCan(void const * argument)
 {
   /* USER CODE BEGIN doMotCan */
+  OLED_displayOnOff(&holed1, 1, 0, 0);
   /* Infinite loop */
   for(;;)
   {

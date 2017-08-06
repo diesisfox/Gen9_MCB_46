@@ -9,6 +9,7 @@
 #include "../CAN_ID.h"
 
 extern osMessageQId motCanRxQHandle;
+extern OLED_HandleTypeDef holed1;
 
 static void denomuralize(uint8_t* in, uint8_t* out){ //compress the error frame
 	out[0] = (in[0]&0xf) | ((in[0]&0xe)>>1) | ((in[1]<<7));
@@ -17,9 +18,26 @@ static void denomuralize(uint8_t* in, uint8_t* out){ //compress the error frame
 	out[2] = ((in[3]&0x8>>3)) | ((in[4]&0x3)<<1);
 }
 
+static void printUint16(uint16_t x, uint8_t* out){
+	uint8_t buf[5];
+	uint8_t msd = 4;
+	for(uint8_t i=4; i>=0; i++){
+		buf[i] = (x%10) + 0x30;
+		if(x%10 != 0) msd=i;
+		x/=10;
+	}
+	uint8_t j=0;
+	for(uint8_t i=msd; i<5; i++){
+		out[j] = buf[i];
+		j++;
+	}
+}
+
 void motCan_Processor(){
 	static Can_frame_t inFrame;
 	static Can_frame_t newFrame;
+	static uint8_t oledBuf[4][20];
+
 	xQueueReceive(motCanRxQHandle, &inFrame, portMAX_DELAY);
 	uint8_t motNum = ((inFrame.id & 0xf0) >> 1)-1; //2,4,6,8 to 0,1,2,3
 	switch (inFrame.id) {
@@ -33,6 +51,11 @@ void motCan_Processor(){
 			newFrame.dlc = mcDiag0_DLC;
 			*(uint64_t*)newFrame.Data = *(uint64_t*)inFrame.Data;
 			bxCan_sendFrame(&newFrame);
+			for(uint8_t i=0; i<5; i++){
+				oledBuf[0][i] = 0x20;
+			}
+			printUint16(data->motorRPM, oledBuf);
+			OLED_writeFrame(&holed1, oledBuf);
 			break;
           }
 		case Log_Res_Frm1_RL1:
