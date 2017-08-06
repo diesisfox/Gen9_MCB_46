@@ -1186,6 +1186,9 @@
                 <name>$PROJ_DIR$\..\Src\main.c</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\Src\MotCan_Processor.c</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\Src\Node_Manager.c</name>
             </file>
             <file>

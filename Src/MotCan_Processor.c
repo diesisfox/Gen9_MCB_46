@@ -6,6 +6,7 @@
  */
 #include "motCan_Processor.h"
 #include "nodeConf.h"
+#include "../CAN_ID.h"
 
 extern osMessageQId motCanRxQHandle;
 
@@ -26,46 +27,52 @@ void motCan_Processor(){
 		case Log_Res_Frm0_RR1:
 		case Log_Res_Frm0_FL1:
 		case Log_Res_Frm0_FR1:
-			MotCanFrm0_t * data = inFrame.Data;
+          {
+            MotCanFrm0_t* data = (MotCanFrm0_t*)inFrame.Data;
 			newFrame.id = mcDiag0;
-			mewFrame.dlc = mcDiag0_DLC;
+			newFrame.dlc = mcDiag0_DLC;
 			*(uint64_t*)newFrame.Data = *(uint64_t*)inFrame.Data;
 			bxCan_sendFrame(&newFrame);
 			break;
+          }
 		case Log_Res_Frm1_RL1:
 		case Log_Res_Frm1_RR1:
 		case Log_Res_Frm1_FL1:
 		case Log_Res_Frm1_FR1:
-			MotCanFrm1_t * data = inFrame.Data;
+          {
+			MotCanFrm1_t * data = (MotCanFrm1_t*)inFrame.Data;
 
 			newFrame.id = accelPos;
 			newFrame.dlc = accelPos_DLC;
-			*(uint16_t*)newFrame.Data = data.acceleratorPosition;
+			*(uint16_t*)newFrame.Data = data->acceleratorPosition;
 			bxCan_sendFrame(&newFrame);
 
 			newFrame.id = regenPos;
 			newFrame.dlc = regenPos_DLC;
-			*(uint16_t*)newFrame.Data = data.regen_VR_Position;
+			*(uint16_t*)newFrame.Data = data->regen_VR_Position;
 			bxCan_sendFrame(&newFrame);
 
 			newFrame.id = mcDiag1;
-			mewFrame.dlc = mcDiag1_DLC;
+			newFrame.dlc = mcDiag1_DLC;
 			*(uint64_t*)newFrame.Data = *(uint64_t*)inFrame.Data;
 			bxCan_sendFrame(&newFrame);
 
 			break;
+          }
 		case Log_Res_Frm2_RL1:
 		case Log_Res_Frm2_RR1:
 		case Log_Res_Frm2_FL1:
 		case Log_Res_Frm2_FR1:
+          {
 			if(*(uint64_t*)inFrame.Data){
-				MotCanFrm2_t * data = inFrame.Data;
+				MotCanFrm2_t * data = (MotCanFrm2_t*)inFrame.Data;
 				denomuralize(inFrame.Data, newFrame.Data);
 				newFrame.id = mcError;
 				newFrame.dlc = mcError_DLC;
 				bxCan_sendFrame(&newFrame);
 			}
 			break;
+          }
 		default:
 			break;
 	}
