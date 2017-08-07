@@ -12,6 +12,8 @@
 extern osMessageQId motCanRxQHandle;
 extern OLED_HandleTypeDef holed1;
 
+uint32_t reqFrameIds[4] = {0x08f89540,0x08f91540,0x08f99540,0x08fa1540};
+
 static void denomuralize(uint8_t* in, uint8_t* out){ //compress the error frame
 	out[0] = (in[0]&0xf) | ((in[0]&0xe)>>1) | ((in[1]<<7));
 	out[1] = ((in[1]&0x2)>>1) | ((in[1]&0x8)>>2) | ((in[2]&0x1)<<2) |\
@@ -57,6 +59,14 @@ void motCan_Processor(){
 			}
 			printUint16(data->motorRPM, (uint8_t*)oledBuf);
 			OLED_writeFrame(&holed1, (uint8_t*)oledBuf);
+
+			newFrame.Data[0] = 7;
+			newFrame.dlc = 1;
+			for(uint8_t i=0; i<4; i++){
+				newFrame.id = reqFrameIds[i];
+				bxCan2_sendFrame(&newFrame);
+			}
+			
 			break;
           }
 		case Log_Res_Frm1_RL1:

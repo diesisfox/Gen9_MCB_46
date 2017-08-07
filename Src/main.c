@@ -704,6 +704,15 @@ void doMotCan(void const * argument)
   osDelay(8);
   OLED_displayOnOff(&holed1, 1, 1, 1);
   OLED_writeFrame(&holed1, "Hello Fucktard");
+
+  Can_frame_t newFrame;
+
+  newFrame.Data[0] = 7;
+  newFrame.dlc = 1;
+  for(uint8_t i=0; i<4; i++){
+	  newFrame.id = reqFrameIds[i];
+	  bxCan2_sendFrame(&newFrame);
+  }
   /* Infinite loop */
   for(;;)
   {

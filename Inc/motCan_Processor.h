@@ -14,6 +14,8 @@
 #include "serial.h"
 #include "nodeMiscHelpers.h"
 
+uint32_t* reqFrameIds;
+
 typedef struct{
 	uint16_t batteryVoltage : 10; //0.5V
 	uint16_t batteryCurrent : 9; //1A
