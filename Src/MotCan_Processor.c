@@ -7,6 +7,7 @@
 #include "motCan_Processor.h"
 #include "nodeConf.h"
 #include "../CAN_ID.h"
+#include "oled2004.h"
 
 extern osMessageQId motCanRxQHandle;
 extern OLED_HandleTypeDef holed1;
@@ -54,8 +55,8 @@ void motCan_Processor(){
 			for(uint8_t i=0; i<5; i++){
 				oledBuf[0][i] = 0x20;
 			}
-			printUint16(data->motorRPM, oledBuf);
-			OLED_writeFrame(&holed1, oledBuf);
+			printUint16(data->motorRPM, (uint8_t*)oledBuf);
+			OLED_writeFrame(&holed1, (uint8_t*)oledBuf);
 			break;
           }
 		case Log_Res_Frm1_RL1:

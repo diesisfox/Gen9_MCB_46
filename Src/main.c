@@ -701,7 +701,9 @@ void doProcessCan(void const * argument)
 void doMotCan(void const * argument)
 {
   /* USER CODE BEGIN doMotCan */
-  OLED_displayOnOff(&holed1, 1, 0, 0);
+  osDelay(8);
+  OLED_displayOnOff(&holed1, 1, 1, 1);
+  OLED_writeFrame(&holed1, "Hello Fucktard");
   /* Infinite loop */
   for(;;)
   {

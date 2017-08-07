@@ -1195,6 +1195,9 @@
                 <name>$PROJ_DIR$\..\Src\nodeMiscHelpers.c</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\Src\oled2004.c</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\Src\RT_Handler.c</name>
             </file>
             <file>

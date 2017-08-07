@@ -76,7 +76,6 @@ static void sendOneCmd(OLED_HandleTypeDef* holed, uint16_t cmd);
 static void sendCommandChain(OLED_HandleTypeDef* holed, uint16_t* buf);
 static void sendDataChain(OLED_HandleTypeDef* holed, uint8_t* buf);
 static void readDataChain(OLED_HandleTypeDef* holed, uint8_t* buf);
-static uint8_t* catCmd(uint8_t len, uint8_t* cmds);
 
 static OLED_HandleTypeDef* holeds[MAX_OLEDS_PHY] = {0};
 
@@ -192,7 +191,7 @@ void OLED_rawCmd(OLED_HandleTypeDef* holed, uint8_t raw){
 }
 
 static uint8_t checkBusyFlag(OLED_HandleTypeDef* holed, uint8_t* addrOut){
-	static uint8_t const txBuf[3] = {0x40, 0x10, 0x00};
+	static uint8_t txBuf[3] = {0x40, 0x10, 0x00};
 	static uint8_t rxBuf[3];
 
 	xSemaphoreTake(holed->txMtx, portMAX_DELAY);
@@ -323,7 +322,7 @@ static void writeFrame(OLED_HandleTypeDef* holed){
 	sendOneCmd(holed, OLED_SPI_CMD_PREAMBLE| \
 			PACKCMD_0(CMD_SET_DDRAM_ADDRESS|DDRAM_ADDRESSIFY(1,0)));
 
-	sendOneCmd(holed, 0b0011000000000000);
+//	sendOneCmd(holed, 0b0011000000000000);
 //	sendOneCmd(holed, 0b0010101000000000);
 //
 //	sendOneCmd(holed, OLED_SPI_CMD_PREAMBLE| \
@@ -376,41 +375,4 @@ static void sendDataChain(OLED_HandleTypeDef* holed, uint8_t* buf){
 
 static void readDataChain(OLED_HandleTypeDef* holed, uint8_t* buf){
 
-}
-
-
-static uint8_t* catCmd(uint8_t len, uint8_t* cmds){
-	if(len == 0) return 0xff;
-	static uint8_t temp[320];
-
-	//place in all the 4s of commands:
-	int8_t groups = len/4;
-	for(int i=0; i<groups; i++){
-		temp[5*i+0] = cmds[4*i+0] >> 2;
-		temp[5*i+1] = cmds[4*i+0] << 6 | cmds[4*i+1] >> 4;
-		temp[5*i+2] = cmds[4*i+1] << 4 | cmds[4*i+2] >> 6;
-		temp[5*i+3] = cmds[4*i+2] << 2;
-		temp[5*i+4] = cmds[4*i+3];
-	}
-
-	//place in last group of commands:
-	temp[5*groups+2]=temp[5*groups+1]=temp[5*groups+0]=0;
-	uint8_t lastLen = 0;
-	switch(len%4){
-	case 3:
-		temp[5*groups+2] |= cmds[4&groups+2] >> 6;
-		temp[5*groups+3] |= cmds[4*groups+2] << 2;
-		lastLen = 4;
-	case 2:
-		temp[5*groups+1] |= cmds[4*groups+1] >> 4;
-		temp[5*groups+2] |= cmds[4*groups+1] << 4;
-		lastLen = 3;
-	case 1:
-		temp[5*groups+0] |= cmds[4*groups+0] >> 2;
-		temp[5*groups+1] |= cmds[4*groups+0] << 6;
-		lastLen = 2;
-	default: break;
-	}
-
-	return temp;
 }
