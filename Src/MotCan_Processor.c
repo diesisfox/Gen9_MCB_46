@@ -11,6 +11,7 @@
 
 extern osMessageQId motCanRxQHandle;
 extern OLED_HandleTypeDef holed1;
+extern osSemaphoreId motReqSemHandle;
 
 uint32_t reqFrameIds[4] = {0x08f89540,0x08f91540,0x08f99540,0x08fa1540};
 
@@ -45,14 +46,8 @@ void motCan_Processor(){
     MotCanFrm2_t * data2;
 
 	xQueueReceive(motCanRxQHandle, &inFrame, portMAX_DELAY);
-
-      newFrame.Data[0] = 7;
-      newFrame.dlc = 1;
-      newFrame.isExt = 1;
-      for(uint8_t i=0; i<4; i++){
-          newFrame.id = reqFrameIds[i];
-          bxCan2_sendFrame(&newFrame);
-      }
+    
+    xSemaphoreGive(motReqSemHandle);
       
 //      OLED_writeFrame(&holed1, "request sent");
       
