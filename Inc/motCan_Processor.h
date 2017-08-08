@@ -14,7 +14,7 @@
 #include "serial.h"
 #include "nodeMiscHelpers.h"
 
-uint32_t* reqFrameIds;
+extern uint32_t reqFrameIds[4];
 
 typedef struct{
 	uint16_t batteryVoltage : 10; //0.5V
@@ -25,7 +25,7 @@ typedef struct{
 	uint16_t motorRPM : 12; //1rpm
 	uint16_t PWM_duty : 10; //0.5%
 	uint16_t leadAngle : 7; //0.5 deg
-}MotCanFrm0_t; //8 bytes
+} __attribute__ ((__packed__)) MotCanFrm0_t; //8 bytes
 
 typedef struct{
 	uint16_t powerMode : 1; // ? power mode : eco mode
@@ -37,7 +37,7 @@ typedef struct{
 	uint16_t driveActionStatus : 2; //0=stop, 1=RFU, 2=forward, 3=reverse
 	uint16_t regenStatus : 1; // ? regeneration : drive
 	uint16_t : 1;
-}MotCanFrm1_t; //5 bytes
+} __attribute__ ((__packed__)) MotCanFrm1_t; //5 bytes
 
 typedef struct{
 	uint16_t analogSensorErr : 1;
@@ -67,7 +67,7 @@ typedef struct{
 	uint16_t : 4;
 	uint16_t overHeatLevel : 2;
 	uint16_t : 6;
-}MotCanFrm2_t; //5 bytes
+} __attribute__ ((__packed__)) MotCanFrm2_t; //5 bytes
 
 void motCan_Processor(void);
 
