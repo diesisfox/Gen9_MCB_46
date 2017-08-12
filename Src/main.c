@@ -84,7 +84,6 @@ osThreadId Can_ProcessorHandle;
 osThreadId MotCanProcessorHandle;
 osThreadId Switch_ReaderHandle;
 osThreadId NodeManagerHandle;
-osThreadId motReqTaskHandle;
 osMessageQId mainCanTxQHandle;
 osMessageQId mainCanRxQHandle;
 osMessageQId motCanRxQHandle;
@@ -116,7 +115,6 @@ void doProcessCan(void const * argument);
 void doMotCan(void const * argument);
 void doSwitches(void const * argument);
 void doNodeManager(void const * argument);
-void doMotReq(void const * argument);
 void TmrKickDog(void const * argument);
 void toggleLSig(void const * argument);
 void toggleRSig(void const * argument);
@@ -272,10 +270,6 @@ int main(void)
   /* definition and creation of NodeManager */
   osThreadDef(NodeManager, doNodeManager, osPriorityBelowNormal, 0, 512);
   NodeManagerHandle = osThreadCreate(osThread(NodeManager), NULL);
-
-  /* definition and creation of motReqTask */
-  osThreadDef(motReqTask, doMotReq, osPriorityIdle, 0, 512);
-  motReqTaskHandle = osThreadCreate(osThread(motReqTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -798,27 +792,6 @@ void doNodeManager(void const * argument)
     Node_Manager();
   }
   /* USER CODE END doNodeManager */
-}
-
-/* doMotReq function */
-void doMotReq(void const * argument)
-{
-  /* USER CODE BEGIN doMotReq */
-  static Can_frame_t newFrame;
-  newFrame.Data[0] = 7;
-  newFrame.dlc = 1;
-  newFrame.isExt = 1;
-  
-  for(;;){
-      xSemaphoreTake(motReqSemHandle, portMAX_DELAY);
-      
-      for(uint8_t i=0; i<4; i++){
-          newFrame.id = reqFrameIds[i];
-          bxCan2_sendFrame(&newFrame);
-      }
-      osDelay(100);
-  }
-  /* USER CODE END doMotReq */
 }
 
 /* TmrKickDog function */
