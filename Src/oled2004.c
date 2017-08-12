@@ -72,6 +72,7 @@ typedef struct{
 static uint8_t checkBusyFlag(OLED_HandleTypeDef* holed, uint8_t* addrOut);
 static void waitBusyFlag(OLED_HandleTypeDef* holed);
 static void doOLED(void * pvParameters);
+static void writeLength(OLED_HandleTypeDef* holed, uint8_t len);
 static void writeFrame(OLED_HandleTypeDef* holed);
 static void sendOneCmd(OLED_HandleTypeDef* holed, uint16_t cmd);
 static void sendCommandChain(OLED_HandleTypeDef* holed, uint16_t* buf);
@@ -166,6 +167,8 @@ void OLED_setCustomChar(OLED_HandleTypeDef* holed, uint8_t num, uint8_t* buf){
 	cmd.cmd = CMD_SET_CGRAM_ADDRESS;
 	cmd.setCGRamAddr_Args.row = 0;
 	cmd.setCGRamAddr_Args.ch = num&7;
+	xQueueSend(holed->cmdQ, &cmd, portMAX_DELAY);
+	cmd.cmd = CMD_WRITE_CUSTOM_CHAR;
 	xQueueSend(holed->dataQ, buf, portMAX_DELAY);
 	xQueueSend(holed->cmdQ, &cmd, portMAX_DELAY);
 }
@@ -305,7 +308,7 @@ static void writeFrame(OLED_HandleTypeDef* holed){
 	static uint8_t frame[4][20];
 	static uint8_t buf[41];
 
-	xQueueReceive(holed->dataQ, frame, 0); //TODO: make faster
+	xQueueReceive(holed->dataQ, frame, portMAX_DELAY); //TODO: make faster
 
 	sendOneCmd(holed, OLED_SPI_CMD_PREAMBLE| \
 			PACKCMD_0(CMD_SET_DDRAM_ADDRESS|DDRAM_ADDRESSIFY(0,0)));
@@ -366,7 +369,14 @@ static void writeFrame(OLED_HandleTypeDef* holed){
 
 static void writeLength(OLED_HandleTypeDef* holed, uint8_t len){
 	static uint8_t buf[80];
-	xQueueReceive(holed->dataQ, buf, 0);
+	xQueueReceive(holed->dataQ, buf, portMAX_DELAY);
+	xSemaphoreTake(holed->txMtx, portMAX_DELAY);
+	HAL_GPIO_WritePin(holed->csPort, holed->csPin, 0);
+	HAL_SPI_Transmit(holed->hspi, buf, len, 500);
+	HAL_GPIO_WritePin(holed->csPort, holed->csPin, 1);
+	xSemaphoreGive(holed->rxSem);
+	xSemaphoreTake(holed->rxSem, portMAX_DELAY);
+	xSemaphoreGive(holed->txMtx);
 }
 
 static void sendOneCmd(OLED_HandleTypeDef* holed, uint16_t cmd){

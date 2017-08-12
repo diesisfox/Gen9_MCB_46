@@ -109,6 +109,10 @@ void DD_updatePwr(uint32_t pow){
 	xSemaphoreGive(updateSem);
 }
 
+void DD_updateRadio(){
+	xSemaphoreGive(radioSem);
+}
+
 static void doDD(void* pvParameters){
 	for(;;){
 		xSemaphoreTake(updateSem, portMAX_DELAY);
@@ -118,23 +122,60 @@ static void doDD(void* pvParameters){
 }
 
 static void setupIcons(){
+	OLED_setCustomChar(holed, 0, cc_rpm0);
 	buf[RPM_ADDR-1] = 0;
+	OLED_setCustomChar(holed, 1, cc_lightning);
 	buf[VOLT_ADDR-1] = 1;
+	OLED_setCustomChar(holed, 2, cc_plug);
 	buf[CRT_ADDR-1] = 2;
+	OLED_setCustomChar(holed, 3, cc_powerOn);
 	buf[PWR_ADDR-1] = 3;
+	OLED_setCustomChar(holed, 4, cc_wifi7);
 	buf[RAD_ADDR-1] = 4;
+	OLED_setCustomChar(holed, 5, cc_blank);
 	buf[ACK_ADDR-1] = 5;
 }
 
 static void doRadioAnim(void* arg){
 	for(;;){
 		xSemaphoreTake(radioSem, portMAX_DELAY);
+		OLED_setCustomChar(holed, 4, cc_wifi6);
+		xSemaphoreGive(updateSem);
+		osDelay(100);
+		OLED_setCustomChar(holed, 4, cc_wifi5);
+		xSemaphoreGive(updateSem);
+		osDelay(100);
+		OLED_setCustomChar(holed, 4, cc_wifi3);
+		xSemaphoreGive(updateSem);
+		osDelay(100);
+		OLED_setCustomChar(holed, 4, cc_wifi7);
+		xSemaphoreGive(updateSem);
+		osDelay(100);
 	}
 }
 
 static void doRpmAnim(void* arg){
+	uint8_t frame;
+	uint8_t* frames[4] = {cc_rpm0, cc_rpm1, cc_rpm2, cc_rpm3};
+	uint16_t delay = 0;
 	for(;;){
-
+		if(rpm == 0){
+			frame = 3;
+			delay = 100;
+		}else if(rpm < 50){
+			delay = 500;
+		}else if(rpm < 100){
+			delay = 333;
+		}else if(rpm < 200){
+			delay = 200;
+		}else if(rpm < 300){
+			delay = 150;
+		}else{
+			delay = 100;
+		}
+		frame = (frame++)%4;
+		OLED_setCustomChar(holed, 0, frames[frame]);
+		xSemaphoreGive(updateSem);
 	}
 }
 

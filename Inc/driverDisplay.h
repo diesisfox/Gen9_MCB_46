@@ -21,6 +21,7 @@ void DD_updateRPM(uint16_t rpm);
 void DD_updateVolt(uint32_t volt);
 void DD_updateCrt(uint32_t crt);
 void DD_updatePwr(uint32_t pow);
+void DD_updateRadio();
 
 
 #endif /* DRIVERDISPLAY_H_ */
