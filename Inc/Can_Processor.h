@@ -13,6 +13,7 @@
 #include "can.h"
 #include "serial.h"
 #include "nodeMiscHelpers.h"
+#include "driverDisplay.h"
 
 void Can_Processor(void);
 

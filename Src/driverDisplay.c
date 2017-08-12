@@ -36,7 +36,7 @@ static uint16_t rpm = 0;
 static void doDD(void* pvParameters);
 static void doRadioAnim(void* arg);
 static void doRpmAnim(void* arg);
-static doSpeedAnim(void* arg);
+static void doSpeedAnim(void* arg);
 static void setupIcons();
 
 void DD_init(OLED_HandleTypeDef* holedIn){
@@ -173,13 +173,13 @@ static void doRpmAnim(void* arg){
 		}else{
 			delay = 100;
 		}
-		frame = (frame++)%4;
+		frame = (frame+1)%4;
 		OLED_setCustomChar(holed, 0, frames[frame]);
 		xSemaphoreGive(updateSem);
 	}
 }
 
-static doSpeedAnim(void* arg){
+static void doSpeedAnim(void* arg){
 	for(;;){
 
 	}

@@ -15,6 +15,7 @@
 #include "oled2004.h"
 #include "nodeConf.h"
 #include "nodeMiscHelpers.h"
+#include "customChars.h"
 
 void DD_init(OLED_HandleTypeDef* holedIn);
 void DD_updateRPM(uint16_t rpm);

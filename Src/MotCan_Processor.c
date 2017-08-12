@@ -51,7 +51,6 @@ static void printUint16(uint16_t x, uint8_t* out){
 void motCan_Processor(){
 	static Can_frame_t inFrame;
 	static Can_frame_t newFrame;
-	static uint8_t oledBuf[4][20];
 
 
 	MotCanFrm0_t * data0;
@@ -84,9 +83,6 @@ void motCan_Processor(){
 			}
 			//*(uint64_t*)newFrame.Data = *(uint64_t*)inFrame.Data;
 			bxCan_sendFrame(&newFrame);
-			for(uint8_t i=0; i<5; i++){
-				oledBuf[0][i] = 0x20;
-			}
 			DD_updateRPM(data0->motorRPM);
 
 			break;
@@ -136,7 +132,7 @@ void motCan_Processor(){
 		case LOG_FRAME_0_RR_ID:
 		case LOG_FRAME_0_FL_ID:
 		case LOG_FRAME_0_FR_ID:
-			logData0 = (MotLogFrm0_t*)inFrame.Data
+			logData0 = (MotLogFrm0_t*)inFrame.Data;
 			DD_updateRPM(logData0->motorRPM);
 
 			break;
@@ -144,11 +140,11 @@ void motCan_Processor(){
 		case LOG_FRAME_1_RR_ID:
 		case LOG_FRAME_1_FL_ID:
 		case LOG_FRAME_1_FR_ID:
-			logData1 = (MotLogFrm1_t*)inFrame.Data
+			logData1 = (MotLogFrm1_t*)inFrame.Data;
 
 			break;
 		case LOG_FRAME_2_VM_ID:
-			logData2 = (MotLogFrm2_t*)inFrame.Data
+			logData2 = (MotLogFrm2_t*)inFrame.Data;
 
 			break;
 		default:

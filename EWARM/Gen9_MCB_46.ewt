@@ -1177,6 +1177,12 @@
                 <name>$PROJ_DIR$\..\Src\Can_Processor.c</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\Src\customChars.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Src\driverDisplay.c</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\Src\firmwareTable.c</name>
             </file>
             <file>

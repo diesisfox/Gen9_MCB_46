@@ -38,6 +38,7 @@
 
 #include "cmsis_os.h"
 #include "stm32f4xx_hal.h"
+#include "../CAN_ID.h"
 
 #define HB_Interval		1000		// Node heartbeat send interval	(soft ms)
 #define WD_Interval		16			// Watdog timer refresh interval (soft ms) | MUST BE LESS THAN 26!!!
