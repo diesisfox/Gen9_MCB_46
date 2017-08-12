@@ -170,6 +170,7 @@ void OLED_displayOnOff(OLED_HandleTypeDef* holed, uint8_t d, uint8_t c, uint8_t 
 void OLED_cursorDisplayShift(OLED_HandleTypeDef* holed, uint8_t mode);
 void OLED_setDataLength(OLED_HandleTypeDef* holed, uint8_t dl);
 void OLED_setFontTable(OLED_HandleTypeDef* holed, uint8_t ft);
+void OLED_setCustomChar(OLED_HandleTypeDef* holed, uint8_t num, uint8_t* buf);
 void OLED_setCursor(OLED_HandleTypeDef* holed, uint8_t r, uint8_t c);
 void OLED_writeFrame(OLED_HandleTypeDef* holed, uint8_t* buf);
 void OLED_writeLines(OLED_HandleTypeDef* holed, uint8_t* buf, uint8_t lines);

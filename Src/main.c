@@ -182,6 +182,7 @@ int main(void)
 	bxCan_addMaskedFilterStd(swOffset,0xFF0,0); // Filter: Status word group (ignore nodeID)
     bxCan_addMaskedFilterStd(fwOffset,0xFF0,0); // Filter: Firmware version group (ignore nodeID)
     bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0); // Filter: p2p command group (ignore nodeID)
+	bxCan_addMaskedFilterStd(battPwr, 0xFFF, 0);
 
     bxCan2_begin(&hcan2, &motCanRxQHandle, &motCanTxQHandle);
 	bxCan2_addMaskedFilterStd(0,0,0);

@@ -33,6 +33,12 @@ static OLED_HandleTypeDef* holed;
 static TaskHandle_t ddTask, radioAnimTask, rpmAnimTask, speedAnimTask;
 static uint16_t rpm = 0;
 
+static void doDD(void* pvParameters);
+static void doRadioAnim(void* arg);
+static void doRpmAnim(void* arg);
+static doSpeedAnim(void* arg);
+static void setupIcons();
+
 void DD_init(OLED_HandleTypeDef* holedIn){
 	buff = (uint8_t*) buf;
 	for(uint8_t i=0; i<sizeof(buf); i++){
@@ -44,15 +50,6 @@ void DD_init(OLED_HandleTypeDef* holedIn){
 	xTaskCreate(doDD, "DDTask", 1024, NULL, 3, &ddTask);
 	xTaskCreate(doRadioAnim, "RadioAnimTask", 512, NULL, 2, &radioAnimTask);
 	xTaskCreate(doRpmAnim, "RpmAnimTask", 512, NULL, 2, &rpmAnimTask);
-}
-
-void setupIcons(){
-	buf[RPM_ADDR-1] = 0;
-	buf[VOLT_ADDR-1] = 1;
-	buf[CRT_ADDR-1] = 2;
-	buf[PWR_ADDR-1] = 3;
-	buf[RAD_ADDR-1] = 4;
-	buf[ACK_ADDR-1] = 5;
 }
 
 void DD_updateRPM(uint16_t rpm){
@@ -118,6 +115,15 @@ static void doDD(void* pvParameters){
 		OLED_writeFrame(holed, buff);
 		osDelay(FPS_DELAY);
 	}
+}
+
+static void setupIcons(){
+	buf[RPM_ADDR-1] = 0;
+	buf[VOLT_ADDR-1] = 1;
+	buf[CRT_ADDR-1] = 2;
+	buf[PWR_ADDR-1] = 3;
+	buf[RAD_ADDR-1] = 4;
+	buf[ACK_ADDR-1] = 5;
 }
 
 static void doRadioAnim(void* arg){

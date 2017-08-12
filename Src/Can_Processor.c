@@ -116,6 +116,13 @@ void Can_Processor(){
 				xSemaphoreGive(nodeEntryMtxHandle[RxNodeID]);
 			}
 			bxCan_sendFrame(&newFrame);
+		}else if(canID == battPwr){
+			uint32_t volt = newFrame.Data[0]<<24 | newFrame.Data[1]<<16 | newFrame.Data[2]<<8 | newFrame.Data[3]<<8;
+			uint32_t crt = newFrame.Data[4]<<24 | newFrame.Data[5]<<16 | newFrame.Data[6]<<8 | newFrame.Data[7]<<8;
+			DD_updateVolt(volt);
+			DD_updateCrt(crt);
+			volt/=1000;
+			DD_updatePwr(volt*crt);
 		}
 		// Ignore other cases
 	}

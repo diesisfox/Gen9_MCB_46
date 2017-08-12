@@ -22,6 +22,7 @@
 #define CMD_WRITE_FRAME				5
 #define CMD_READ_DATA				6
 #define CMD_WRITE_LINES				7
+#define CMD_WRITE_CUSTOM_CHAR		9
 
 #define OLED_SPI_CMD_PREAMBLE		0x0000
 #define OLED_SPI_BUSY_FLAG_PREAMBLE	0x4000
@@ -160,6 +161,15 @@ void OLED_setFontTable(OLED_HandleTypeDef* holed, uint8_t ft){
 	xQueueSend(holed->cmdQ, &cmd, portMAX_DELAY);
 }
 
+void OLED_setCustomChar(OLED_HandleTypeDef* holed, uint8_t num, uint8_t* buf){
+	OLED_Cmd_t cmd;
+	cmd.cmd = CMD_SET_CGRAM_ADDRESS;
+	cmd.setCGRamAddr_Args.row = 0;
+	cmd.setCGRamAddr_Args.ch = num&7;
+	xQueueSend(holed->dataQ, buf, portMAX_DELAY);
+	xQueueSend(holed->cmdQ, &cmd, portMAX_DELAY);
+}
+
 void OLED_setCursor(OLED_HandleTypeDef* holed, uint8_t r, uint8_t c){
 	OLED_Cmd_t cmd;
 	cmd.cmd = CMD_SET_DDRAM_ADDRESS;
@@ -282,6 +292,9 @@ static void doOLED(void * pvParameters){
 			case CMD_WRITE_FRAME:
 				writeFrame(holed);
 				break;
+			case CMD_WRITE_CUSTOM_CHAR:
+				writeLength(holed, 8);
+				break;
 			default:
 				break;
 		}
@@ -292,7 +305,7 @@ static void writeFrame(OLED_HandleTypeDef* holed){
 	static uint8_t frame[4][20];
 	static uint8_t buf[41];
 
-	xQueueReceive(holed->dataQ, frame, portMAX_DELAY); //TODO: make faster
+	xQueueReceive(holed->dataQ, frame, 0); //TODO: make faster
 
 	sendOneCmd(holed, OLED_SPI_CMD_PREAMBLE| \
 			PACKCMD_0(CMD_SET_DDRAM_ADDRESS|DDRAM_ADDRESSIFY(0,0)));
@@ -349,6 +362,11 @@ static void writeFrame(OLED_HandleTypeDef* holed){
 	xSemaphoreGive(holed->rxSem);
 	xSemaphoreTake(holed->rxSem, portMAX_DELAY);
 	xSemaphoreGive(holed->txMtx);
+}
+
+static void writeLength(OLED_HandleTypeDef* holed, uint8_t len){
+	static uint8_t buf[80];
+	xQueueReceive(holed->dataQ, buf, 0);
 }
 
 static void sendOneCmd(OLED_HandleTypeDef* holed, uint16_t cmd){
