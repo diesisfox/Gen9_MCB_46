@@ -178,11 +178,10 @@ int main(void)
 	Serial2_writeBuf("Booting... \n");
 
 	bxCan_begin(&hcan1, &mainCanRxQHandle, &mainCanTxQHandle);
-	bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0);
 	bxCan_addMaskedFilterStd(swOffset,0xFF0,0); // Filter: Status word group (ignore nodeID)
     bxCan_addMaskedFilterStd(fwOffset,0xFF0,0); // Filter: Firmware version group (ignore nodeID)
     bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0); // Filter: p2p command group (ignore nodeID)
-	bxCan_addMaskedFilterStd(battPwr, 0xFFF, 0);
+	bxCan_addMaskedFilterStd(0x201, 0x7FF, 0);
 
     bxCan2_begin(&hcan2, &motCanRxQHandle, &motCanTxQHandle);
 	bxCan2_addMaskedFilterStd(0,0,0);
@@ -710,7 +709,7 @@ void doMotCan(void const * argument)
 {
   /* USER CODE BEGIN doMotCan */
   osDelay(8);
-  OLED_writeFrame(&holed1, "Welcome aboard \"B9\"       POLARIS       ");
+  OLED_writeFrame(&holed1, "Welcome aboard \"B9\"                           POLARIS       ");
   DD_init(&holed1);
 
   /* Infinite loop */

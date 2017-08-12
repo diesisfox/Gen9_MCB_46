@@ -20,10 +20,10 @@ A: rpm; B: voltage; C: current; D:power; E:radio; F:ack
 */
 #define RPM_ADDR 0][1
 #define VOLT_ADDR 0][10
-#define CRT_ADDR 3][1
-#define PWR_ADDR 3][9
-#define RAD_ADDR 1][20
-#define ACK_ADDR 3][20
+#define CRT_ADDR 2][1
+#define PWR_ADDR 2][9
+#define RAD_ADDR 0][20
+#define ACK_ADDR 2][20
 
 static uint8_t buf[4][20];
 static uint8_t* buff;
@@ -47,6 +47,8 @@ void DD_init(OLED_HandleTypeDef* holedIn){
 	updateSem = xSemaphoreCreateBinary();
 	radioSem = xSemaphoreCreateBinary();
 	holed = holedIn;
+    setupIcons();
+    OLED_displayOnOff(holed, 1, 0, 0);
 	xTaskCreate(doDD, "DDTask", 1024, NULL, 3, &ddTask);
 	xTaskCreate(doRadioAnim, "RadioAnimTask", 512, NULL, 2, &radioAnimTask);
 	xTaskCreate(doRpmAnim, "RpmAnimTask", 512, NULL, 2, &rpmAnimTask);
@@ -58,59 +60,82 @@ void DD_updateRPM(uint16_t rpm){
 	}
 	uint8_t len = intToDec(rpm, &(buf[RPM_ADDR]));
 	applyStr(&(buf[RPM_ADDR+len]), "rpm", 3);
-	xSemaphoreGive(updateSem);
+	if(updateSem) xSemaphoreGive(updateSem);
 }
 
-void DD_updateVolt(uint32_t volt){
+void DD_updateVolt(int32_t volt){
+  uint8_t len =0;
 	for(uint8_t i=0; i<7; i++){
 		buf[VOLT_ADDR+i] = ' ';
 	}
-	uint16_t volt1 = volt/1000000;
-	uint8_t len = intToDec(volt1, &(buf[VOLT_ADDR]));
-	volt1 = (volt%1000000)/1000;
+    if(volt<0){
+		buf[VOLT_ADDR+len] = '-';
+		len++;
+        volt = -volt;
+	}
+	int32_t volt1 = volt/1000000;
+    
+	len += intToDec(volt1, &(buf[VOLT_ADDR+len]));
+	volt1 = (volt%1000000)/10000;
 	if(volt1){
 		buf[VOLT_ADDR+len] = '.';
 		len++;
 		len += intToDec(volt1, &(buf[VOLT_ADDR+len]));
 	}
 	buf[VOLT_ADDR+len] = 'V';
-	xSemaphoreGive(updateSem);
+	if(updateSem) xSemaphoreGive(updateSem);
 }
 
-void DD_updateCrt(uint32_t crt){
+void DD_updateCrt(int32_t crt){
+  uint8_t len =0;
 	for(uint8_t i=0; i<6; i++){
 		buf[CRT_ADDR+i] = ' ';
 	}
-	uint16_t crt1 = crt/1000000;
-	uint8_t len = intToDec(crt1, &(buf[CRT_ADDR]));
-	crt1 = (crt%1000000)/1000;
+    if(crt<0){
+		buf[CRT_ADDR+len] = '-';
+		len++;
+        crt = -crt;
+	}
+	int32_t crt1 = crt/1000000;
+    
+	len += intToDec(crt1, &(buf[CRT_ADDR+len]));
+	crt1 = (crt%1000000)/10000;
+    
 	if(crt1){
 		buf[CRT_ADDR+len] = '.';
 		len++;
 		len += intToDec(crt1, &(buf[CRT_ADDR+len]));
 	}
 	buf[CRT_ADDR+len] = 'A';
-	xSemaphoreGive(updateSem);
+	if(updateSem) xSemaphoreGive(updateSem);
 }
 
-void DD_updatePwr(uint32_t pow){
+void DD_updatePwr(int32_t pow){
+  uint8_t len =0;
 	for(uint8_t i=0; i<9; i++){
 		buf[PWR_ADDR+i] = ' ';
 	}
-	uint16_t pow1 = pow/1000;
-	uint8_t len = intToDec(pow1, &(buf[PWR_ADDR]));
-	pow1 = (pow%1000)/10;
+    if(pow<0){
+		buf[PWR_ADDR+len] = '-';
+		len++;
+        pow = -pow;
+	}
+	int32_t pow1 = pow/1000000;
+    
+	len += intToDec(pow1, &(buf[PWR_ADDR+len]));
+	pow1 = (pow%1000000)/10000;
+    
 	if(pow1){
 		buf[PWR_ADDR+len] = '.';
 		len++;
 		len += intToDec(pow1, &(buf[PWR_ADDR+len]));
 	}
 	buf[PWR_ADDR+len] = 'W';
-	xSemaphoreGive(updateSem);
+	if(updateSem) xSemaphoreGive(updateSem);
 }
 
 void DD_updateRadio(){
-	xSemaphoreGive(radioSem);
+	if(radioSem) xSemaphoreGive(radioSem);
 }
 
 static void doDD(void* pvParameters){
@@ -160,8 +185,10 @@ static void doRpmAnim(void* arg){
 	uint16_t delay = 0;
 	for(;;){
 		if(rpm == 0){
-			frame = 3;
-			delay = 100;
+//			frame = 3;
+//			delay = 500;
+            osDelay(100);
+            continue;
 		}else if(rpm < 50){
 			delay = 500;
 		}else if(rpm < 100){

@@ -369,10 +369,17 @@ static void writeFrame(OLED_HandleTypeDef* holed){
 
 static void writeLength(OLED_HandleTypeDef* holed, uint8_t len){
 	static uint8_t buf[80];
-	xQueueReceive(holed->dataQ, buf, portMAX_DELAY);
+    static uint8_t buf2[81];
+    
+    xQueueReceive(holed->dataQ, buf, portMAX_DELAY);
+    buf2[0] = OLED_SPI_WRITE_PREAMBLE>>8;
+	for(int i=0; i<len; i++){
+		buf2[i] |= buf[i] >> 2;
+		buf2[i+1] = buf[i] << 6;
+	}
 	xSemaphoreTake(holed->txMtx, portMAX_DELAY);
 	HAL_GPIO_WritePin(holed->csPort, holed->csPin, 0);
-	HAL_SPI_Transmit(holed->hspi, buf, len, 500);
+	HAL_SPI_Transmit(holed->hspi, buf2, len+1, 500);
 	HAL_GPIO_WritePin(holed->csPort, holed->csPin, 1);
 	xSemaphoreGive(holed->rxSem);
 	xSemaphoreTake(holed->rxSem, portMAX_DELAY);
