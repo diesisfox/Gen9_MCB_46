@@ -14,6 +14,7 @@
 #include "cmsis_os.h"
 #include "oled2004.h"
 #include "nodeConf.h"
+#include "nodeMiscHelpers.h"
 
 
 #endif /* DRIVERDISPLAY_H_ */

@@ -8,6 +8,7 @@
 #include "nodeConf.h"
 #include "../CAN_ID.h"
 #include "oled2004.h"
+#include "driverDisplay.h"
 
 #define LOG_FRAME_0_RL_ID	0x05048225
 #define LOG_FRAME_0_RR_ID	0x05048245
@@ -86,9 +87,7 @@ void motCan_Processor(){
 			for(uint8_t i=0; i<5; i++){
 				oledBuf[0][i] = 0x20;
 			}
-
-			printUint16(data0->motorRPM, (uint8_t*)oledBuf);
-			OLED_writeFrame(&holed1, (uint8_t*)oledBuf);
+			DD_updateRPM(data0->motorRPM);
 
 			break;
 		case Log_Res_Frm1_RL1:
@@ -138,8 +137,7 @@ void motCan_Processor(){
 		case LOG_FRAME_0_FL_ID:
 		case LOG_FRAME_0_FR_ID:
 			logData0 = (MotLogFrm0_t*)inFrame.Data
-			printUint16(logData0->motorRPM, (uint8_t*)oledBuf);
-			OLED_writeFrame(&holed1, (uint8_t*)oledBuf);
+			DD_updateRPM(logData0->motorRPM);
 
 			break;
 		case LOG_FRAME_1_RL_ID:

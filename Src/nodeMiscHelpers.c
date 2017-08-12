@@ -227,6 +227,12 @@ uint8_t intToDec(uint32_t input, uint8_t *str){ //returns length. Only does posi
 	return length;
 }
 
+void applyStr(uint8_t* buf, uint8_t* str, uint32_t len){
+	for(uint32_t i=0; i<len; i++){
+		buf[i] = str[i];
+	}
+}
+
 void intToHex(uint32_t input, uint8_t *str, int length){
 	for(int i=0; i<length; i++){
 		str[length-1-i]=valToHex(input&0x0F);

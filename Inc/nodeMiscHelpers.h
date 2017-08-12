@@ -72,5 +72,6 @@ void bytesToReg(uint8_t * byte, uint32_t * reg);
 void regToBytes(uint32_t * reg, uint8_t * bytes);
 uint8_t intToDec(uint32_t input, uint8_t *str); //returns length. Only does positives.
 void intToHex(uint32_t input, uint8_t *str, int length);
+void applyStr(uint8_t* buf, uint8_t* str, uint32_t len);
 
 #endif /* NODEMISCHELPERS_H_ */
