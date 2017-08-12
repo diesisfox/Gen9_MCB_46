@@ -256,19 +256,19 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of Can_Processor */
-  osThreadDef(Can_Processor, doProcessCan, osPriorityAboveNormal, 0, 512);
+  osThreadDef(Can_Processor, doProcessCan, osPriorityRealtime, 0, 512);
   Can_ProcessorHandle = osThreadCreate(osThread(Can_Processor), NULL);
 
   /* definition and creation of MotCanProcessor */
-  osThreadDef(MotCanProcessor, doMotCan, osPriorityNormal, 0, 512);
+  osThreadDef(MotCanProcessor, doMotCan, osPriorityAboveNormal, 0, 512);
   MotCanProcessorHandle = osThreadCreate(osThread(MotCanProcessor), NULL);
 
   /* definition and creation of Switch_Reader */
-  osThreadDef(Switch_Reader, doSwitches, osPriorityLow, 0, 512);
+  osThreadDef(Switch_Reader, doSwitches, osPriorityAboveNormal, 0, 512);
   Switch_ReaderHandle = osThreadCreate(osThread(Switch_Reader), NULL);
 
   /* definition and creation of NodeManager */
-  osThreadDef(NodeManager, doNodeManager, osPriorityBelowNormal, 0, 512);
+  osThreadDef(NodeManager, doNodeManager, osPriorityHigh, 0, 512);
   NodeManagerHandle = osThreadCreate(osThread(NodeManager), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
