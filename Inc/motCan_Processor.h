@@ -69,6 +69,33 @@ typedef struct{
 	uint16_t : 6;
 } __attribute__ ((__packed__)) MotCanFrm2_t; //5 bytes
 
+typedef struct{
+	uint16_t battVolt		: 10;	// 0.5V/LSB; 0-500V
+	uint16_t battCrt		: 9;	// 1A/LSB; 0-250A
+	uint16_t battCrtSgn		: 1;	// 1 = minus
+	uint16_t motorCrt		: 9;	// 1A/LSB; 0-250A
+	uint16_t motorCrtSgn	: 1;	// 1 = minus
+	uint16_t tempControl	: 5;	// 5°C/LSB; 0-100°C
+	uint16_t tempMotor		: 5;	// 5°C/LSB; 0-100°C
+	uint16_t motorRPM		: 12;	// 1rpm/LSB; 0-3000rpm
+	uint16_t outputDuty		: 10;	// TODO wtf is dis measured in
+	uint16_t outputDutyType	: 1;	// 0=running, 1=regen
+	uint16_t				: 1;	// reserved
+} __attribute__ ((__packed__)) MotLogFrm0_t; //8 bytes
+
+typedef struct{
+	uint16_t motorDriveMode	: 8;	// 0x00 = stop, 0x01 = suspend, 0x10 = forward rotation
+	uint16_t failModeInfo	: 5;	// ?|sensor|power|motor|overcharge failModeInfo
+	uint16_t tempErrLevel	: 3;	// 0 = normal, 1-3 = levels 1 to 3 of overheating
+} __attribute__ ((__packed__)) MotLogFrm1_t; //2 bytes
+
+typedef struct{
+	uint16_t presentCorePos	: 8;	// 1%/LSB; core pos is 100% at maximum stroke
+	uint16_t failModeInfo	: 4;	// ?|sensor|power|motor error
+	uint16_t				: 1;	// reserved
+	uint16_t				: 3;	// reserved
+} __attribute__ ((__packed__)) MotLogFrm2_t; //2 bytes
+
 void motCan_Processor(void);
 
 #endif /* MOTCAN_PROCESSOR_H_ */
