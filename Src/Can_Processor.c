@@ -127,6 +127,10 @@ void Can_Processor(){
             crt/=1000;
 			DD_updatePwr(volt*crt);
 		}
+
+		if(RxNodeID == radio_nodeID){
+			DD_updateRadio();
+		}
 		// Ignore other cases
 	}
 }
