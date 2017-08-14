@@ -9,7 +9,7 @@
 
 #define MAX_FPS 60
 #define FPS_DELAY 1000/MAX_FPS
-#define FILTER_SIZE 32
+#define FILTER_SIZE 16
 
 /*
 AaaaaAAA•Bbbb.bbB••E
@@ -44,8 +44,8 @@ static uint8_t linesToUpdate = 0;
 static OLED_HandleTypeDef* holed;
 static TaskHandle_t ddTask, radioAnimTask, rpmAnimTask, speedAnimTask;
 static uint16_t rpm = 0;
-static int32_t voltBuf[FILTER_SIZE], crtBuf[FILTER_SIZE], pwrBuf[FILTER_SIZE];
-static uint8_t voltBufInd = 0, crtBufInd = 0, pwrBufInd = 0;
+static int32_t voltBuf[FILTER_SIZE], crtBuf[FILTER_SIZE], powBuf[FILTER_SIZE];
+static uint8_t voltBufInd = 0, crtBufInd = 0, powBufInd = 0;
 static uint8_t bufFilled = 0; //?|?|?|?|?|p|i|v
 
 static void doDD(void* pvParameters);
@@ -116,12 +116,12 @@ void DD_updateCrt(int32_t crt){
 	crtBuf[crtBufInd] = crt;
 	crt = 0;
 	for(int i=0; i<FILTER_SIZE; i++){
-		crt += crtBuf[i]/((bufFilled&0x01)?FILTER_SIZE:(crtBufInd+1));
+		crt += crtBuf[i]/((bufFilled&0x02)?FILTER_SIZE:(crtBufInd+1));
 	}
 	crtBufInd++;
 	if(crtBufInd == FILTER_SIZE){
 		crtBufInd = 0;
-		bufFilled |= 0x01;
+		bufFilled |= 0x02;
 	}
 	uint8_t len = 0;
 	for(uint8_t i=0; i<6; i++){
@@ -150,12 +150,12 @@ void DD_updatePwr(int32_t pow){
 	powBuf[powBufInd] = pow;
 	pow = 0;
 	for(int i=0; i<FILTER_SIZE; i++){
-		volt += powBuf[i]/((bufFilled&0x01)?FILTER_SIZE:(powBufInd+1));
+		pow += powBuf[i]/((bufFilled&0x04)?FILTER_SIZE:(powBufInd+1));
 	}
 	powBufInd++;
 	if(powBufInd == FILTER_SIZE){
 		powBufInd = 0;
-		bufFilled |= 0x01;
+		bufFilled |= 0x04;
 	}
 	uint8_t len = 0;
 	for(uint8_t i=0; i<9; i++){
@@ -211,16 +211,12 @@ static void doRadioAnim(void* arg){
 	for(;;){
 		xSemaphoreTake(radioSem, portMAX_DELAY);
 		OLED_setCustomChar(holed, 4, cc_wifi6);
-		xSemaphoreGive(updateSem);
 		osDelay(100);
 		OLED_setCustomChar(holed, 4, cc_wifi5);
-		xSemaphoreGive(updateSem);
 		osDelay(100);
 		OLED_setCustomChar(holed, 4, cc_wifi3);
-		xSemaphoreGive(updateSem);
 		osDelay(100);
 		OLED_setCustomChar(holed, 4, cc_wifi7);
-		xSemaphoreGive(updateSem);
 		osDelay(100);
 	}
 }
@@ -246,7 +242,6 @@ static void doRpmAnim(void* arg){
 		}
 		frame = (frame+1)%4;
 		OLED_setCustomChar(holed, 0, frames[frame]);
-		xSemaphoreGive(updateSem);
 		osDelay(delay);
 	}
 }
