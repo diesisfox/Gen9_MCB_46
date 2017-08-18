@@ -69,14 +69,14 @@ void DD_init(OLED_HandleTypeDef* holedIn){
 	xTaskCreate(doRpmAnim, "RpmAnimTask", 512, NULL, 2, &rpmAnimTask);
 }
 
-void DD_updateRPM(uint16_t rpmIn){
-	rpm = rpmIn;
+void DD_updateRPM(uint32_t rpmIn){
+	rpm = rpmIn/1000;
 	uint8_t len = 0;
 	for(uint8_t i=0; i<7; i++){
 		buf[RPM_ADDR+i] = ' ';
 	}
 	len += intToDec(rpm, &(buf[RPM_ADDR]));
-	applyStr(&(buf[RPM_ADDR+len]), "rpm", 3);
+	applyStr(&(buf[RPM_ADDR+len]), "kph", 3);
 	if(updateSem) xSemaphoreGive(updateSem);
 }
 

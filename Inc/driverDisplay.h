@@ -18,7 +18,7 @@
 #include "customChars.h"
 
 void DD_init(OLED_HandleTypeDef* holedIn);
-void DD_updateRPM(uint16_t rpm);
+void DD_updateRPM(uint32_t rpm);
 void DD_updateVolt(int32_t volt);
 void DD_updateCrt(int32_t crt);
 void DD_updatePwr(int32_t pow);

@@ -19,6 +19,8 @@
 #define LOG_FRAME_1_FL_ID	0x05148265
 #define LOG_FRAME_1_FR_ID	0x05148285
 #define LOG_FRAME_2_VM_ID	0x05248228
+#define WS22_BUS_MES_ID		0x402
+#define WS22_VELO_MES_ID	0x403
 
 extern osMessageQId motCanRxQHandle;
 extern OLED_HandleTypeDef holed1;
@@ -83,7 +85,7 @@ void motCan_Processor(){
 			}
 			//*(uint64_t*)newFrame.Data = *(uint64_t*)inFrame.Data;
 			bxCan_sendFrame(&newFrame);
-			DD_updateRPM(data0->motorRPM);
+			DD_updateRPM(data0->motorRPM * 1000);
 
 			break;
 		case Log_Res_Frm1_RL1:
@@ -146,6 +148,14 @@ void motCan_Processor(){
 		case LOG_FRAME_2_VM_ID:
 			logData2 = (MotLogFrm2_t*)inFrame.Data;
 
+			break;
+		case WS22_BUS_MES_ID:
+			break;
+		case WS22_VELO_MES_ID:
+			float mps;
+			*((uint32_t*)&mps) = *((uint32_t*)(inFrame.Data+4));
+			mps = (mps*3600/1000)*1000;
+			DD_updateRPM((uint32_t)mps);
 			break;
 		default:
 			break;
