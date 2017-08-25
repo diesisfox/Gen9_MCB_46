@@ -226,20 +226,25 @@ static void doRpmAnim(void* arg){
 	uint8_t* frames[4] = {cc_rpm0, cc_rpm1, cc_rpm2, cc_rpm3};
 	uint16_t delay = 0;
 	for(;;){
-		if(rpm == 0){
+//		if(rpm == 0){
+//			frame = 3;
+//			delay = 500;
+//		}else if(rpm < 50){
+//			delay = 500;
+//		}else if(rpm < 100){
+//			delay = 333;
+//		}else if(rpm < 200){
+//			delay = 200;
+//		}else if(rpm < 300){
+//			delay = 150;
+//		}else{
+//			delay = 100;
+//		}
+	  	if(rpm == 0){
 			frame = 3;
-			delay = 500;
-		}else if(rpm < 50){
-			delay = 500;
-		}else if(rpm < 100){
-			delay = 333;
-		}else if(rpm < 200){
-			delay = 200;
-		}else if(rpm < 300){
-			delay = 150;
-		}else{
-			delay = 100;
 		}
+		delay = 2500/rpm;
+		if(delay > 500) delay = 500;
 		frame = (frame+1)%4;
 		OLED_setCustomChar(holed, 0, frames[frame]);
 		osDelay(delay);

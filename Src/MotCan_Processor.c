@@ -85,7 +85,7 @@ void motCan_Processor(){
 			}
 			//*(uint64_t*)newFrame.Data = *(uint64_t*)inFrame.Data;
 			bxCan_sendFrame(&newFrame);
-			DD_updateRPM(data0->motorRPM * 1000);
+			DD_updateRPM(data0->motorRPM * 3142 * 56 * 60 / 100); //m/h
 
 			break;
 		case Log_Res_Frm1_RL1:
@@ -152,8 +152,9 @@ void motCan_Processor(){
 		case WS22_BUS_MES_ID:
 			break;
 		case WS22_VELO_MES_ID:
-			float mps;
+			static float mps;
 			*((uint32_t*)&mps) = *((uint32_t*)(inFrame.Data+4));
+			if(mps<0) mps*=-1;
 			mps = (mps*3600/1000)*1000;
 			DD_updateRPM((uint32_t)mps);
 			break;
