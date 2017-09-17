@@ -12,23 +12,14 @@ static uint32_t aggregate[CHANNEL_COUNT];
 static uint32_t sampleCount[CHANNEL_COUNT];
 static uint16_t dmaBuffer[CHANNEL_COUNT];
 
-static uint8_t convInProg = 0;
-
-static void switchChannel(uint8_t channel){
-	HAL_GPIO_WritePin(S0_GPIO_Port, S0_Pin, channel & 0x1);
-	HAL_GPIO_WritePin(S1_GPIO_Port, S1_Pin, channel & 0x2);
-	HAL_GPIO_WritePin(S2_GPIO_Port, S2_Pin, channel & 0x4);
-	HAL_GPIO_WritePin(S3_GPIO_Port, S3_Pin, channel & 0x8);
-}
-
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 	if(xSemaphoreTakeFromISR(tempMtxHandle, NULL)){
 		for(int i=0; i < CHANNEL_COUNT; i++){
 			aggregate[i] += dmaBuffer[i];
-			sampleCount[channel]++;
-			if(aggregate[channel] >= 0xFFFFF000){
-				aggregate[channel] /= sampleCount[channel];
-				sampleCount[channel] = 1;
+			sampleCount[i]++;
+			if(aggregate[i] >= 0xFFFFF000){
+				aggregate[i] /= sampleCount[i];
+				sampleCount[i] = 1;
 			}
 		}
 		xSemaphoreGiveFromISR(tempMtxHandle, NULL);

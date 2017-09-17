@@ -147,6 +147,9 @@ typedef enum {
 // Module temperature array offset
 #define tempOffset 		0x500		// Note the index of first temperature is at 0x501
 
+//MCB temperature
+#define MCBtempOffset	0x540
+
 // Mitsuba IDs (using Rear Right)
 #define mitsubaREQ			Log_Req_RR1
 #define mitsubaFr0			Log_Res_Frm0_RR1

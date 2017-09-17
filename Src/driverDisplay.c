@@ -190,7 +190,7 @@ void DD_updateDriverTemp(int32_t uC){
 	for(uint8_t i=0; i<6; i++){
 		buf[DRVTEMP_ADDR+i] = ' ';
 	}
-	if(pow<0){
+	if(uC<0){
 		buf[DRVTEMP_ADDR+len] = '-';
 		len++;
 		uC = -uC;
@@ -205,7 +205,7 @@ void DD_updateDriverTemp(int32_t uC){
 		len++;
 		len += intToDec(uC1, &(buf[DRVTEMP_ADDR+len]));
 	}
-	buf[DRVTEMP_ADDR+len] = 0b11011111;
+	buf[DRVTEMP_ADDR+len] = 0xdf;
 	buf[DRVTEMP_ADDR+len+1] = 'C';
 	if(updateSem) xSemaphoreGive(updateSem);
 }
