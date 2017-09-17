@@ -279,6 +279,6 @@ static void doRpmAnim(void* arg){
 
 static void doSpeedAnim(void* arg){
 	for(;;){
-
+		osDelay(10000);
 	}
 }
