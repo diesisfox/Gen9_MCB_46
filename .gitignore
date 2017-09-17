@@ -3,10 +3,11 @@ Debug/
 Release/
 Inc/Backup
 Src/Backup
+.DS_Store
 
 .cproject
 
-# IAR Settings  
+# IAR Settings
 **/settings/*.crun
 **/settings/*.dbgdt
 **/settings/*.cspy
@@ -21,12 +22,12 @@ EWARM/*.dep
 **/settings/*.dnx
 BuildLog.log
 
-# IAR Debug Exe  
+# IAR Debug Exe
 **/Exe/*.sim
 **/Exe/*.out
 **/List/*.map
 
-# IAR Debug Obj  
+# IAR Debug Obj
 **/Obj/*.pbi
 **/Obj/*.pbi.*
 **/Obj/*.pbd

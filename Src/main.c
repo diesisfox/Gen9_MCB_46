@@ -5,41 +5,41 @@
   ******************************************************************************
   * This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether 
+  * USER CODE END. Other portions of this file, whether
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
-  * Copyright (c) 2017 STMicroelectronics International N.V. 
+  * Copyright (c) 2017 STMicroelectronics International N.V.
   * All rights reserved.
   *
-  * Redistribution and use in source and binary forms, with or without 
+  * Redistribution and use in source and binary forms, with or without
   * modification, are permitted, provided that the following conditions are met:
   *
-  * 1. Redistribution of source code must retain the above copyright notice, 
+  * 1. Redistribution of source code must retain the above copyright notice,
   *    this list of conditions and the following disclaimer.
   * 2. Redistributions in binary form must reproduce the above copyright notice,
   *    this list of conditions and the following disclaimer in the documentation
   *    and/or other materials provided with the distribution.
-  * 3. Neither the name of STMicroelectronics nor the names of other 
-  *    contributors to this software may be used to endorse or promote products 
+  * 3. Neither the name of STMicroelectronics nor the names of other
+  *    contributors to this software may be used to endorse or promote products
   *    derived from this software without specific written permission.
-  * 4. This software, including modifications and/or derivative works of this 
+  * 4. This software, including modifications and/or derivative works of this
   *    software, must execute solely and exclusively on microcontroller or
   *    microprocessor devices manufactured by or for STMicroelectronics.
-  * 5. Redistribution and use of this software other than as permitted under 
-  *    this license is void and will automatically terminate your rights under 
-  *    this license. 
+  * 5. Redistribution and use of this software other than as permitted under
+  *    this license is void and will automatically terminate your rights under
+  *    this license.
   *
-  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
-  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
-  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS"
+  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT
+  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
   * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
-  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
+  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT
   * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
   * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
-  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
-  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
+  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
   * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
@@ -56,6 +56,7 @@
 #include "serial.h"
 #include "oled2004.h"
 #include "driverDisplay.h"
+#include "ts_lib.h"
 #include "nodeMiscHelpers.h"
 #include "nodeConf.h"
 #include "../../CAN_ID.h"
@@ -178,19 +179,19 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	OLED_init(&holed1, &hspi3, SCREEN_CS_GPIO_Port, SCREEN_CS_Pin);
 
-  setupNodeTable();
-  nodeTable[cc_nodeID].nodeStatusWord = ACTIVE;		// Set initial status to ACTIVE
+	setupNodeTable();
+	nodeTable[cc_nodeID].nodeStatusWord = ACTIVE;		// Set initial status to ACTIVE
 
-  Serial2_begin();
+	Serial2_begin();
 	Serial2_writeBuf("Booting... \n");
 
 	bxCan_begin(&hcan1, &mainCanRxQHandle, &mainCanTxQHandle);
 	bxCan_addMaskedFilterStd(swOffset,0xFF0,0); // Filter: Status word group (ignore nodeID)
-    bxCan_addMaskedFilterStd(fwOffset,0xFF0,0); // Filter: Firmware version group (ignore nodeID)
-    bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0); // Filter: p2p command group (ignore nodeID)
+	bxCan_addMaskedFilterStd(fwOffset,0xFF0,0); // Filter: Firmware version group (ignore nodeID)
+	bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0); // Filter: p2p command group (ignore nodeID)
 	bxCan_addMaskedFilterStd(0x201, 0x7FF, 0);
 
-    bxCan2_begin(&hcan2, &motCanRxQHandle, &motCanTxQHandle);
+	bxCan2_begin(&hcan2, &motCanRxQHandle, &motCanTxQHandle);
 	bxCan2_addMaskedFilterStd(0,0,0);
 	bxCan2_addMaskedFilterExt(0,0,0);
 
@@ -210,10 +211,10 @@ int main(void)
   /* USER CODE BEGIN RTOS_MUTEX */
   // Node table entry mutex
   // Every entry has a mutex that is associated with the nodeID
-  for(uint8_t i =0; i < MAX_NODE_NUM; i++){
-	  osMutexDef(i);
-	  nodeEntryMtxHandle[i] = (QueueHandle_t)osMutexCreate(osMutex(i));
-  }
+	for(uint8_t i =0; i < MAX_NODE_NUM; i++){
+		osMutexDef(i);
+		nodeEntryMtxHandle[i] = (QueueHandle_t)osMutexCreate(osMutex(i));
+	}
   /* USER CODE END RTOS_MUTEX */
 
   /* Create the semaphores(s) */
@@ -240,13 +241,13 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
-  xTimerChangePeriod(LSigTmrHandle,Turn_sig_Interval,portMAX_DELAY);
-  xTimerStop(LSigTmrHandle,portMAX_DELAY);
-  xTimerChangePeriod(RSigTmrHandle,Turn_sig_Interval,portMAX_DELAY);
-  xTimerStop(RSigTmrHandle,portMAX_DELAY);
-  osTimerStart(WWDGTmrHandle, WD_Interval);
+	xTimerChangePeriod(LSigTmrHandle,Turn_sig_Interval,portMAX_DELAY);
+	xTimerStop(LSigTmrHandle,portMAX_DELAY);
+	xTimerChangePeriod(RSigTmrHandle,Turn_sig_Interval,portMAX_DELAY);
+	xTimerStop(RSigTmrHandle,portMAX_DELAY);
+	osTimerStart(WWDGTmrHandle, WD_Interval);
 
-  // Node heartbeat timeout timers
+// Node heartbeat timeout timers
 //    for(uint8_t TmrID = 0; TmrID < MAX_NODE_NUM; TmrID++){
 //  	  osTimerDef(TmrID, TmrHBTimeout);
 //  	  // TODO: Consider passing the nodeTmrHandle+Offset or NULL
@@ -311,11 +312,11 @@ int main(void)
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
- 
+
 
   /* Start scheduler */
   osKernelStart();
-  
+
   /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
@@ -339,13 +340,13 @@ void SystemClock_Config(void)
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
 
-    /**Configure the main internal regulator output voltage 
+    /**Configure the main internal regulator output voltage
     */
   __HAL_RCC_PWR_CLK_ENABLE();
 
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
@@ -361,7 +362,7 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
@@ -375,11 +376,11 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure the Systick interrupt time 
+    /**Configure the Systick interrupt time
     */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-    /**Configure the Systick 
+    /**Configure the Systick
     */
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
@@ -393,7 +394,7 @@ static void MX_ADC1_Init(void)
 
   ADC_ChannelConfTypeDef sConfig;
 
-    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
     */
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
@@ -412,7 +413,7 @@ static void MX_ADC1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
     */
   sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = 1;
@@ -422,7 +423,7 @@ static void MX_ADC1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
     */
   sConfig.Channel = ADC_CHANNEL_6;
   sConfig.Rank = 2;
@@ -431,7 +432,7 @@ static void MX_ADC1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
     */
   sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
   sConfig.Rank = 3;
@@ -440,7 +441,7 @@ static void MX_ADC1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
     */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 4;
@@ -578,10 +579,10 @@ static void MX_WWDG_Init(void)
 
 }
 
-/** 
+/**
   * Enable DMA controller clock
   */
-static void MX_DMA_Init(void) 
+static void MX_DMA_Init(void)
 {
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
@@ -602,13 +603,13 @@ static void MX_DMA_Init(void)
 
 }
 
-/** Configure pins as 
-        * Analog 
-        * Input 
+/** Configure pins as
+        * Analog
+        * Input
         * Output
         * EVENT_OUT
         * EXTI
-        * Free pins are configured automatically as Analog (this feature is enabled through 
+        * Free pins are configured automatically as Analog (this feature is enabled through
         * the Code Generation settings)
 */
 static void MX_GPIO_Init(void)
@@ -696,9 +697,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB10 PB12 PB13 PB8 
+  /*Configure GPIO pins : PB10 PB12 PB13 PB8
                            PB9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_8 
+  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_8
                           |GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -765,27 +766,27 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 }
 
 void HAL_CAN_TxCpltCallback(CAN_HandleTypeDef* hcan){
-  if(hcan==&hcan1){
-    CAN1_TxCpltCallback(hcan);
-  }else if(hcan==&hcan2){
-    CAN2_TxCpltCallback(hcan);
-  }
+	if(hcan==&hcan1){
+		CAN1_TxCpltCallback(hcan);
+	}else if(hcan==&hcan2){
+		CAN2_TxCpltCallback(hcan);
+	}
 }
 
 void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan){
-  if(hcan==&hcan1){
-    CAN1_RxCpltCallback(hcan);
-  }else if(hcan==&hcan2){
-    CAN2_RxCpltCallback(hcan);
-  }
+	if(hcan==&hcan1){
+		CAN1_RxCpltCallback(hcan);
+	}else if(hcan==&hcan2){
+		CAN2_RxCpltCallback(hcan);
+	}
 }
 
 void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan){
-  if(hcan==&hcan1){
-    CAN1_ErrorCallback(hcan);
-  }else if(hcan==&hcan2){
-    CAN2_ErrorCallback(hcan);
-  }
+	if(hcan==&hcan1){
+		CAN1_ErrorCallback(hcan);
+	}else if(hcan==&hcan2){
+		CAN2_ErrorCallback(hcan);
+	}
 }
 
 /* USER CODE END 4 */
@@ -795,28 +796,24 @@ void doProcessCan(void const * argument)
 {
 
   /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;){
-	  // Wrapper function for the CAN Processing Logic
-	  // Handles all CAN Protocol Suite based responses and tasks
-	  Can_Processor();
-  }
-  /* USER CODE END 5 */ 
+	for(;;){
+		// Wrapper function for the CAN Processing Logic
+		// Handles all CAN Protocol Suite based responses and tasks
+		Can_Processor();
+	}
+  /* USER CODE END 5 */
 }
 
 /* doMotCan function */
 void doMotCan(void const * argument)
 {
   /* USER CODE BEGIN doMotCan */
-  osDelay(8);
-  OLED_writeFrame(&holed1, "Welcome aboard \"B9\"                           POLARIS       ");
-  DD_init(&holed1);
-
-  /* Infinite loop */
-  for(;;)
-  {
-	motCan_Processor();
-  }
+	osDelay(8);
+	OLED_writeFrame(&holed1, "Welcome aboard \"B9\"                           POLARIS       ");
+	DD_init(&holed1);
+	for(;;){
+		motCan_Processor();
+	}
   /* USER CODE END doMotCan */
 }
 
@@ -825,61 +822,59 @@ void doSwitches(void const * argument)
 {
   /* USER CODE BEGIN doSwitches */
 	uint32_t lastState = 0;
-  /* Infinite loop */
-  for(;;)
-  {
-	uint32_t currentState = readSwitches();
+	for(;;){
+		uint32_t currentState = readSwitches();
 
-	if(ackPressed){     //check ack
-		sendAckPressed();
-		ackPressed = 0;
-	}
+		if(ackPressed){     //check ack
+			sendAckPressed();
+			ackPressed = 0;
+		}
 
-	if(currentState != lastState){
-		reportSwitches(currentState);
+		if(currentState != lastState){
+			reportSwitches(currentState);
 
-		if(currentState & 1<<HAZARD_SWITCH){   //hazard on
-			if(~lastState & 1<<HAZARD_SWITCH){     // hazard up edge
-				HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_SET);
-				HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_SET);
-				xTimerReset(LSigTmrHandle, portMAX_DELAY);
-				xTimerReset(RSigTmrHandle, portMAX_DELAY);
-			}
-		}else{      //hazard off
-			if(lastState & 1<<HAZARD_SWITCH){      // hazard down edge
-				if(~currentState & 1<<LEFT_SIG_SWITCH){
-					xTimerStop(LSigTmrHandle, portMAX_DELAY);
+			if(currentState & 1<<HAZARD_SWITCH){   //hazard on
+				if(~lastState & 1<<HAZARD_SWITCH){     // hazard up edge
+					HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_SET);
+					HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_SET);
+					xTimerReset(LSigTmrHandle, portMAX_DELAY);
+					xTimerReset(RSigTmrHandle, portMAX_DELAY);
+				}
+			}else{      //hazard off
+				if(lastState & 1<<HAZARD_SWITCH){      // hazard down edge
+					if(~currentState & 1<<LEFT_SIG_SWITCH){
+						xTimerStop(LSigTmrHandle, portMAX_DELAY);
+						HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_RESET);
+					}
+					if(~currentState & 1<<RIGHT_SIG_SWITCH){
+						xTimerStop(RSigTmrHandle, portMAX_DELAY);
+						HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_RESET);
+					}
+				}
+				if(currentState & 1<<LEFT_SIG_SWITCH && ~lastState & 1<<LEFT_SIG_SWITCH){   //left up edge
+					HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_SET);
+					xTimerReset(LSigTmrHandle, portMAX_DELAY);
+				}else if(~currentState & 1<<LEFT_SIG_SWITCH && lastState & 1<<LEFT_SIG_SWITCH){   //left down edge
 					HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_RESET);
-				}
-				if(~currentState & 1<<RIGHT_SIG_SWITCH){
-					xTimerStop(RSigTmrHandle, portMAX_DELAY);
+					xTimerStop(LSigTmrHandle, portMAX_DELAY);   //left light is more important than right light
+				}else if(currentState & 1<<RIGHT_SIG_SWITCH && ~lastState & 1<<RIGHT_SIG_SWITCH){   //right up edge
+					HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_SET);
+					xTimerReset(RSigTmrHandle, portMAX_DELAY);
+				}else if(~currentState & 1<<RIGHT_SIG_SWITCH && lastState & 1<<RIGHT_SIG_SWITCH){   //right down edge
 					HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_RESET);
+					xTimerStop(RSigTmrHandle, portMAX_DELAY);
 				}
 			}
-			if(currentState & 1<<LEFT_SIG_SWITCH && ~lastState & 1<<LEFT_SIG_SWITCH){   //left up edge
-				HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_SET);
-				xTimerReset(LSigTmrHandle, portMAX_DELAY);
-			}else if(~currentState & 1<<LEFT_SIG_SWITCH && lastState & 1<<LEFT_SIG_SWITCH){   //left down edge
-				HAL_GPIO_WritePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin,GPIO_PIN_RESET);
-				xTimerStop(LSigTmrHandle, portMAX_DELAY);   //left light is more important than right light
-			}else if(currentState & 1<<RIGHT_SIG_SWITCH && ~lastState & 1<<RIGHT_SIG_SWITCH){   //right up edge
-				HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_SET);
-				xTimerReset(RSigTmrHandle, portMAX_DELAY);
-			}else if(~currentState & 1<<RIGHT_SIG_SWITCH && lastState & 1<<RIGHT_SIG_SWITCH){   //right down edge
-				HAL_GPIO_WritePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin,GPIO_PIN_RESET);
-				xTimerStop(RSigTmrHandle, portMAX_DELAY);
-			}
-		}
 
-		if(currentState & 1<<BRK_SWITCH){       //break light
-			HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_SET);
-		}else{
-			HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_RESET);
+			if(currentState & 1<<BRK_SWITCH){       //break light
+				HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_SET);
+			}else{
+				HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_RESET);
+			}
+			lastState = currentState;
 		}
-		lastState = currentState;
+		osDelay(Switch_Interval);
 	}
-	osDelay(Switch_Interval);
-  }
   /* USER CODE END doSwitches */
 }
 
@@ -887,12 +882,10 @@ void doSwitches(void const * argument)
 void doNodeManager(void const * argument)
 {
   /* USER CODE BEGIN doNodeManager */
-  /* Infinite loop */
-  for(;;)
-  {
-	// Wrapper for the Node_Manager task
-    Node_Manager();
-  }
+	for(;;){
+		// Wrapper for the Node_Manager task
+		Node_Manager();
+	}
   /* USER CODE END doNodeManager */
 }
 
@@ -900,11 +893,9 @@ void doNodeManager(void const * argument)
 void doTempTask(void const * argument)
 {
   /* USER CODE BEGIN doTempTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+	for(;;){
+		osDelay(1);
+	}
   /* USER CODE END doTempTask */
 }
 
@@ -912,9 +903,9 @@ void doTempTask(void const * argument)
 void TmrKickDog(void const * argument)
 {
   /* USER CODE BEGIN TmrKickDog */
-  taskENTER_CRITICAL();
-  HAL_WWDG_Refresh(&hwwdg);
-  taskEXIT_CRITICAL();
+	taskENTER_CRITICAL();
+	HAL_WWDG_Refresh(&hwwdg);
+	taskEXIT_CRITICAL();
   /* USER CODE END TmrKickDog */
 }
 
@@ -922,7 +913,7 @@ void TmrKickDog(void const * argument)
 void toggleLSig(void const * argument)
 {
   /* USER CODE BEGIN toggleLSig */
-  HAL_GPIO_TogglePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin);
+	HAL_GPIO_TogglePin(LEFT_LIGHT_GPIO_Port,LEFT_LIGHT_Pin);
   /* USER CODE END toggleLSig */
 }
 
@@ -930,7 +921,7 @@ void toggleLSig(void const * argument)
 void toggleRSig(void const * argument)
 {
   /* USER CODE BEGIN toggleRSig */
-  HAL_GPIO_TogglePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin);
+	HAL_GPIO_TogglePin(RIGHT_LIGHT_GPIO_Port,RIGHT_LIGHT_Pin);
   /* USER CODE END toggleRSig */
 }
 
@@ -967,7 +958,7 @@ void _Error_Handler(char * file, int line)
   while(1)
   {
   }
-  /* USER CODE END Error_Handler_Debug */ 
+  /* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef USE_FULL_ASSERT
@@ -992,10 +983,10 @@ void assert_failed(uint8_t* file, uint32_t line)
 
 /**
   * @}
-  */ 
+  */
 
 /**
   * @}
-*/ 
+*/
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
