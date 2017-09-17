@@ -2,6 +2,7 @@
 #include "thermistor.h"
 
 #define CHANNEL_COUNT 4
+#define INTERNAL_CAHNNEL 2
 
 static ADC_HandleTypeDef* hadc;
 
@@ -25,7 +26,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 		for(int i=0; i < CHANNEL_COUNT; i++){
 			aggregate[i] += dmaBuffer[i];
 			sampleCount[channel]++;
-			if(aggregate[channel] >= 0xFFFF0000){
+			if(aggregate[channel] >= 0xFFFFF000){
 				aggregate[channel] /= sampleCount[channel];
 				sampleCount[channel] = 1;
 			}
@@ -41,17 +42,13 @@ void HAL_ADC_ErrorCallback(ADC_HandleTypeDef *hadc){
 }
 
 void Temp_begin(ADC_HandleTypeDef* hadc_in){
-	for(uint8_t i=0; i<TEMP_CHANNELS; i++){
+	for(uint8_t i=0; i<CHANNEL_COUNT; i++){
 		aggregate[i]=0;
 		sampleCount[i]=0;
 	}
-
 	hadc = hadc_in;
-
 	tempMtxHandle = xSemaphoreCreateMutex();
-
-	switchChannel(convInProg);
-	HAL_ADC_Start_DMA(hadc, (uint32_t*)dmaBuffer, TEMP_MUXES); //dw about ptr types. NEVER dma more than sequenced!
+	HAL_ADC_Start_DMA(hadc, (uint32_t*)dmaBuffer, CHANNEL_COUNT); //dw about ptr types. NEVER dma more than sequenced!
 }
 
 uint16_t getReading(uint8_t channel){
@@ -60,7 +57,7 @@ uint16_t getReading(uint8_t channel){
 		n = aggregate[channel];		//aggregated sum of samples
 		c = sampleCount[channel];	//total number of samples aggreagated
 		s = dmaBuffer[channel];		//latest one sample
-		if(TEMP_OVERSAMPLING == 1){
+		if(TEMP_OVERSAMPLING <= 1){
 			return n/c;
 		}else{
 			return (n-(s*(c%TEMP_OVERSAMPLING)))/(c/TEMP_OVERSAMPLING);
@@ -98,4 +95,18 @@ int32_t getMicroCelcius(uint8_t channel){
 	}else{
 		return 0;
 	}
+}
+
+int32_t getMilliCelciusInternal(){
+	static uint32_t n, c;
+	n = aggregate[INTERNAL_CAHNNEL];		//aggregated sum of samples
+	c = sampleCount[INTERNAL_CAHNNEL];	//total number of samples aggreagated
+	return internalTemp_to_milliCelcius(n,c);
+}
+
+int32_t getMicroCelciusInternal(){
+	static uint32_t n, c;
+	n = aggregate[INTERNAL_CAHNNEL];		//aggregated sum of samples
+	c = sampleCount[INTERNAL_CAHNNEL];	//total number of samples aggreagated
+	return internalTemp_to_microCelcius(n,c);
 }

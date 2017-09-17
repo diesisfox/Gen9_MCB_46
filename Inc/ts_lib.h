@@ -28,8 +28,8 @@ uint16_t getReading(uint8_t channel);
 void resetReading(uint8_t channel);
 int32_t getMilliCelcius(uint8_t channel);
 int32_t getMicroCelcius(uint8_t channel);
-
-
+int32_t getMilliCelciusInternal();
+int32_t getMicroCelciusInternal();
 
 
 

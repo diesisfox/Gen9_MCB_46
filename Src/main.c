@@ -195,8 +195,7 @@ int main(void)
 	bxCan2_addMaskedFilterStd(0,0,0);
 	bxCan2_addMaskedFilterExt(0,0,0);
 
-	// bxCan2_begin(&hcan2, &motCanRxQHandle, &mainCanTxQHandle);
-	// bxCan_addMaskedFilterStd(p2pOffset,0xFF0,0);
+	Temp_begin(&hadc1);
   /* USER CODE END 2 */
 
   /* Create the mutex(es) */
@@ -893,8 +892,19 @@ void doNodeManager(void const * argument)
 void doTempTask(void const * argument)
 {
   /* USER CODE BEGIN doTempTask */
+	int32_t driverTemp, motorTemp;
+	static Can_frame_t newFrame;
+	newFrame.ide=0;
+	newFrame.dlc=8;
+	newFrame.rtr=0;
+	newFrame.id = MCBtempOffset;
 	for(;;){
-		osDelay(1);
+		osDelay(100);
+		driverTemp = getMicroCelciusInternal();
+		motorTemp = getMicroCelcius(3);
+		*(int32_t*)(&(newFrame.Data[0])) = __REV(driverTemp);
+		*(int32_t*)(&(newFrame.Data[4])) = __REV(motorTemp);
+		bxCan_sendFrame();
 	}
   /* USER CODE END doTempTask */
 }

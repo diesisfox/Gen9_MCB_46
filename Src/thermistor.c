@@ -126,4 +126,10 @@ int32_t adc_to_microCelcius(uint32_t s, uint32_t n){
 
 int32_t internalTemp_to_microCelcius(uint32_t s, uint32_t n){
 	uint32_t nVolts = adc_to_nanovolts(s,n);
+	return (nVolts - TEMP_NV25)/(TEMP_NVPC/1000);
+}
+
+int32_t internalTemp_to_milliCelcius(uint32_t s, uint32_t n){
+	uint32_t nVolts = adc_to_nanovolts(s,n);
+	return 10*(nVolts-TEMP_NV25)/(TEMP_NVPC/100000);
 }

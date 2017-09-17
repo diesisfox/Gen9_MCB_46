@@ -13,12 +13,12 @@
 
 /*
 AaaaaAAA•Bbbb.bbB••E
-GggGG•HhhH•IiiiIiiiI
+Ggg.gGG•HhhH•IiiiI••
 Ccc.ccC•Dddddd.ddD•F
 JjjjjjjjjjjjjjjjjjjJ
 
 A: rpm/speed; B: voltage; C: current; D:power; E:radio; F:ack
-G: temp; H: SoC; I: cells; J: trips&status
+G: driver temp; H: SoC; I: cells; J: trips&status
 */
 
 /*
@@ -36,6 +36,7 @@ A: left signal zone; B: right signal zone
 #define PWR_ADDR 2][9
 #define RAD_ADDR 0][20
 #define ACK_ADDR 2][20
+#define DRVTEMP_ADDR 1][1
 
 static uint8_t buf[4][20];
 static uint8_t* buff;
@@ -182,6 +183,31 @@ void DD_updatePwr(int32_t pow){
 
 void DD_updateRadio(){
 	if(radioSem) xSemaphoreGive(radioSem);
+}
+
+void DD_updateDriverTemp(int32_t uC){
+	uint8_t len = 0;
+	for(uint8_t i=0; i<6; i++){
+		buf[DRVTEMP_ADDR+i] = ' ';
+	}
+	if(pow<0){
+		buf[DRVTEMP_ADDR+len] = '-';
+		len++;
+		uC = -uC;
+	}
+	int32_t uC1 = uC/1000000;
+
+	len += intToDec(uC1, &(buf[DRVTEMP_ADDR+len]));
+	uC1 = (uC%1000000)/100000;
+
+	if(uC1){
+		buf[DRVTEMP_ADDR+len] = '.';
+		len++;
+		len += intToDec(uC1, &(buf[DRVTEMP_ADDR+len]));
+	}
+	buf[DRVTEMP_ADDR+len] = 0b11011111;
+	buf[DRVTEMP_ADDR+len+1] = 'C';
+	if(updateSem) xSemaphoreGive(updateSem);
 }
 
 static void doDD(void* pvParameters){
