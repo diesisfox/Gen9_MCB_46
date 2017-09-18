@@ -11,7 +11,7 @@
 #define FPS_DELAY 1000/MAX_FPS
 #define FILTER_SIZE 16
 
-/*
+/* VIEW 1
 AaaaaAAA•Bbbb.bbB••E
 Ggg.gGG•HhhH•IiiiI••
 Ccc.ccC•Dddddd.ddD•F

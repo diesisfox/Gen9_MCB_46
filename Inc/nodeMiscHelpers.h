@@ -50,7 +50,7 @@ void soft_shutdown(void(*usr_clbk)());
 
 
 #define Switch_Interval     10
-#define Turn_sig_Interval   667
+#define Turn_sig_Interval   333
 
 typedef enum{
     LEFT_SIG_SWITCH,
