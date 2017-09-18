@@ -54,6 +54,8 @@ static void doRadioAnim(void* arg);
 static void doRpmAnim(void* arg);
 static void doSpeedAnim(void* arg);
 static void setupIcons();
+static void writeIcons();
+static void setIconChars();
 
 void DD_init(OLED_HandleTypeDef* holedIn){
 	buff = (uint8_t*) buf;
@@ -218,19 +220,27 @@ static void doDD(void* pvParameters){
 	}
 }
 
-static void setupIcons(){
-	OLED_setCustomChar(holed, 0, cc_rpm0);
+static void writeIcons(){
 	buf[RPM_ADDR-1] = 0;
-	OLED_setCustomChar(holed, 1, cc_lightning);
 	buf[VOLT_ADDR-1] = 1;
-	OLED_setCustomChar(holed, 2, cc_plug);
 	buf[CRT_ADDR-1] = 2;
-	OLED_setCustomChar(holed, 3, cc_powerOn);
 	buf[PWR_ADDR-1] = 3;
-	OLED_setCustomChar(holed, 4, cc_blank);
 	buf[RAD_ADDR-1] = 4;
-	OLED_setCustomChar(holed, 5, cc_blank);
 	buf[ACK_ADDR-1] = 5;
+}
+
+static void setIconChars(){
+	OLED_setCustomChar(holed, 0, cc_rpm0);
+	OLED_setCustomChar(holed, 1, cc_lightning);
+	OLED_setCustomChar(holed, 2, cc_plug);
+	OLED_setCustomChar(holed, 3, cc_powerOn);
+	OLED_setCustomChar(holed, 4, cc_blank);
+	OLED_setCustomChar(holed, 5, cc_blank);
+}
+
+static void setupIcons(){
+	setIconChars();
+	writeIcons();
 }
 
 static void doRadioAnim(void* arg){

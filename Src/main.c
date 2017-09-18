@@ -897,7 +897,7 @@ void doNodeManager(void const * argument)
 void doTempTask(void const * argument)
 {
   /* USER CODE BEGIN doTempTask */
-	int32_t driverTemp, motorTemp;
+	int32_t driverTemp, motorTemp, cpuTemp;
 	static Can_frame_t newFrame;
 	newFrame.isExt=0;
 	newFrame.dlc=8;
@@ -905,12 +905,17 @@ void doTempTask(void const * argument)
 	newFrame.id = MCBtempOffset;
 	for(;;){
 		osDelay(100);
-		driverTemp = getMicroCelciusInternal();
+		cpuTemp = getMicroCelciusInternal();
 		resetReading(2);
 		motorTemp = getMicroCelcius(3);
 		resetReading(3);
+		driverTemp = getMicroCelcius(4);
+		resetReading(4);
 		*(int32_t*)(&(newFrame.Data[0])) = __REV(driverTemp);
 		*(int32_t*)(&(newFrame.Data[4])) = __REV(motorTemp);
+		bxCan_sendFrame(&newFrame);
+		*(int32_t*)(&(newFrame.Data[0])) = __REV(cpuTemp);
+		*(int32_t*)(&(newFrame.Data[4])) = __REV((int32_t)0);
 		bxCan_sendFrame(&newFrame);
 		DD_updateDriverTemp(driverTemp);
 	}

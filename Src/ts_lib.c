@@ -1,8 +1,12 @@
 #include "ts_lib.h"
 #include "thermistor.h"
 
-#define CHANNEL_COUNT 4
+#define CHANNEL_COUNT 5
+#define ACCEL_CAHNNEL 0
+#define REGEN_CAHNNEL 1
 #define INTERNAL_CAHNNEL 2
+#define MOT_CAHNNEL 3
+#define DRV_CAHNNEL 4
 
 static ADC_HandleTypeDef* hadc;
 
