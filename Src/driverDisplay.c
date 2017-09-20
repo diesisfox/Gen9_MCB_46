@@ -7,40 +7,14 @@
 
 #include "driverDisplay.h"
 
-#define MAX_FPS 60
+#define MAX_FPS 30
 #define FPS_DELAY 1000/MAX_FPS
 #define FILTER_SIZE 16
+#define NUM_VIEWS 3
 
-/* VIEW 1
-AaaaaAAA•Bbbb.bbB••E
-Ggg.gGG•HhhH•IiiiI••
-Ccc.ccC•Dddddd.ddD•F
-JjjjjjjjjjjjjjjjjjjJ
-
-A: rpm/speed; B: voltage; C: current; D:power; E:radio; F:ack
-G: driver temp; H: SoC; I: cells; J: trips&status
-*/
-
-/*
-AAAAAA SPEED: BBBBBB
-AAAAAA-999.99 BBBBBB
-AAAAAA POWER: BBBBBB
-AAAAAA-9999.99BBBBBB
-
-A: left signal zone; B: right signal zone
-*/
-
-#define RPM_ADDR 0][1
-#define VOLT_ADDR 0][10
-#define CRT_ADDR 2][1
-#define PWR_ADDR 2][9
-#define RAD_ADDR 0][20
-#define ACK_ADDR 2][20
-#define DRVTEMP_ADDR 1][1
-
-static uint8_t buf[4][20];
-static uint8_t* buff;
-static SemaphoreHandle_t updateSem, radioSem;
+static uint8_t buf[NUM_VIEWS][4][20];
+static uint8_t* buf1d;
+static SemaphoreHandle_t updateSem, radioSem, nextSem;
 static uint8_t linesToUpdate = 0;
 static OLED_HandleTypeDef* holed;
 static TaskHandle_t ddTask, radioAnimTask, rpmAnimTask, speedAnimTask;
@@ -58,28 +32,142 @@ static void writeIcons();
 static void setIconChars();
 
 void DD_init(OLED_HandleTypeDef* holedIn){
-	buff = (uint8_t*) buf;
-	for(uint8_t i=0; i<sizeof(buf); i++){
-		buff[i] = ' ';
+	buf1d = (uint8_t*) buf;
+	for(uint8_t i=0; i<sizeof(buf)/sizeof(uint32_t); i+=4;){
+		*(uint32_t*)(&buf1d[i]) = 0x20202020;
 	}
 	updateSem = xSemaphoreCreateBinary();
 	radioSem = xSemaphoreCreateBinary();
+	nextSem = xSemaphoreCreateBinary();
 	holed = holedIn;
 	setupIcons();
 	OLED_displayOnOff(holed, 1, 0, 0);
+	OLED_setFontTable(holed, EURO_2);
 	xTaskCreate(doDD, "DDTask", 1024, NULL, 3, &ddTask);
 	xTaskCreate(doRadioAnim, "RadioAnimTask", 512, NULL, 2, &radioAnimTask);
 	xTaskCreate(doRpmAnim, "RpmAnimTask", 512, NULL, 2, &rpmAnimTask);
 }
 
+/* HOME PAGE
+┌────────────────────┐
+│Aaaa.aAAA•Bbbbbb.bbB│
+│--------------------│
+│cccccccccccccccc•DEF│
+│--------------------│
+└────────────────────┘
+A:speed; B:power; C:trips&status; D:BPS HB; E:ADS HB; F:radio HB;
+*/
+#define KPH_ICO_ADDR	0][0][0
+#define KPH_ADDR 		0][0][1
+#define KPH_MAX_LEN		5
+#define PWR_ICO_ADDR	0][0][10
+#define PWR_ADDR 		0][0][9
+#define PWR_MAX_LEN		8
+#define STAT_ADDR		0][2][0
+#define STAT_MAX_LEN	16
+#define BPS_HB_ADDR		0][2][17
+#define ADS_HB_ADDR		0][2][18
+#define RDL_HB_ADDR		0][2][19
+static int32_t kph_milli, pwr_milli;
+static uint8_t* stat_str;
+
+/* PAGE 1: BATTERY MAIN STATS
+┌────────────────────┐
+│BAT:•Aaaa.aA•Bbb.bbB│
+│--------------------│
+│FGCc.cccDd.dddEe.eee│
+│--------------------│
+└────────────────────┘
+A:voltage; B:current; C:low cell volt; D: avg cell volt; E: high cell volt; F:🔋; G:⚡️;
+*/
+#define VOLT_ICO_ADDR		1][0][5
+#define VOLT_ADDR			1][0][6
+#define VOLT_MAX_LEN		5
+#define CUR_ICO_ADDR		1][0][13
+#define CUR_ADDR			1][0][14
+#define CUR_MAX_LEN			5
+#define CELLV_ICO_ADDR0		1][2][0
+#define CELLV_ICO_ADDR1		1][2][1
+#define CELLV_L_ICO_ADDR	1][2][2
+#define CELLV_L_ADDR		1][2][3
+#define CELLV_L_MAX_LEN		5
+#define CELLV_M_ICO_ADDR	1][2][8
+#define CELLV_M_ADDR		1][2][9
+#define CELLV_M_MAX_LEN		5
+#define CELLV_H_ICO_ADDR	1][2][14
+#define CELLV_H_ADDR		1][2][15
+#define CELLV_H_MAX_LEN		5
+static int32_t volt_milli, amp_milli, cellv_l_milli, cellv_m_milli, cellv_h_milli;
+
+/* PAGE 2: BPS TEMPERATURES
+┌────────────────────┐
+│TEMP1:[°C]•AaaaBbb.b│
+│--------------------│
+│FGCcc.ccDdd.ddEee.ee│
+│--------------------│
+└────────────────────┘
+A:mot temp; B:driver temp; C:low cel temp; D:avg cel temp; E:high cel temp; F:🔋; G:🌡;
+*/
+#define MOTTEMP_ICO_ADDR	2][0][11
+#define MOTTEMP_ADDR		2][0][12
+#define MOTTEMP_MAX_LEN		3
+#define DRVTEMP_ICO_ADDR	2][0][15
+#define DRVTEMP_ADDR		2][0][16
+#define DRVTEMP_MEX_LEN		4
+#define CELLT_ICO_ADDR0		1][2][0
+#define CELLT_ICO_ADDR1		1][2][1
+#define CELLT_L_ICO_ADDR	1][2][2
+#define CELLT_L_ADDR		1][2][3
+#define CELLT_L_MAX_LEN		5
+#define CELLT_M_ICO_ADDR	1][2][8
+#define CELLT_M_ADDR		1][2][9
+#define CELLT_M_MAX_LEN		5
+#define CELLT_H_ICO_ADDR	1][2][14
+#define CELLT_H_ADDR		1][2][15
+#define CELLT_H_MAX_LEN		5
+static int32_t mottemp_milli, drvtemp_milli, cellt_l_milli, cellt_m_milli, cellt_h_milli;
+
+/* PAGE 3: PPT STATS
+┌────────────────────┐
+│PPT:•D[°C]•AaaBbbCcc│
+│--------------------│
+│H[W]•Eeee•Ffff•Gggg•│
+│--------------------│
+└────────────────────┘
+A:temp A; B:temp B; C: temp C; D:🌡; E:power A; F:power B; G:power C; H:🔌;
+*/
+
+/* VIEW X0
+┌────────────────────┐
+│AaaaaAAA•Bbbb.bbB••E│
+│Ggg.gGG•HhhH•IiiiI••│
+│Ccc.ccC•Dddddd.ddD•F│
+│JjjjjjjjjjjjjjjjjjjJ│
+└────────────────────┘
+A: rpm/speed; B: voltage; C: current; D:power; E:radio HB; F:ack;
+G: driver temp; H: SoC; I: avg cell volt; J: trips&status;
+*/
+
+/* VIEW X1
+┌────────────────────┐
+│YYYYYY SPEED: ZZZZZZ│
+│YYYYYY-999.99 ZZZZZZ│
+│YYYYYY POWER: ZZZZZZ│
+│YYYYYY-9999.99ZZZZZZ│
+└────────────────────┘
+Y: left signal zone; Z: right signal zone;
+*/
+
+
+
 void DD_updateRPM(uint32_t rpmIn){
 	rpm = rpmIn/1000;
 	uint8_t len = 0;
 	for(uint8_t i=0; i<7; i++){
-		buf[RPM_ADDR+i] = ' ';
+		buf[KPH_ADDR+i] = ' ';
 	}
-	len += intToDec(rpm, &(buf[RPM_ADDR]));
-	applyStr(&(buf[RPM_ADDR+len]), "kph", 3);
+	len += intToDec(rpm, &(buf[KPH_ADDR]));
+	applyStr(&(buf[KPH_ADDR+len]), "kph", 3);
 	if(updateSem) xSemaphoreGive(updateSem);
 }
 
@@ -215,18 +303,17 @@ void DD_updateDriverTemp(int32_t uC){
 static void doDD(void* pvParameters){
 	for(;;){
 		xSemaphoreTake(updateSem, portMAX_DELAY);
-		OLED_writeFrame(holed, buff);
+		OLED_writeFrame(holed, buf1d);
 		osDelay(FPS_DELAY);
 	}
 }
 
 static void writeIcons(){
-	buf[RPM_ADDR-1] = 0;
+	buf[KPH_ADDR-1] = 0;
 	buf[VOLT_ADDR-1] = 1;
 	buf[CRT_ADDR-1] = 2;
 	buf[PWR_ADDR-1] = 3;
-	buf[RAD_ADDR-1] = 4;
-	buf[ACK_ADDR-1] = 5;
+	buf[RDL_HB_ADDR-1] = 4;
 }
 
 static void setIconChars(){

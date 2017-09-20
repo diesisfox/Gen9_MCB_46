@@ -211,22 +211,6 @@ uint8_t HexToVal(uint8_t i){//0xff = invalid char
 	return 0xff;
 }
 
-uint8_t intToDec(uint32_t input, uint8_t *str){ //returns length. Only does positives.
-	uint8_t length = 0;
-	uint8_t output[10];
-	while(input/10){
-		length++;
-		output[10-length] = valToHex(input%10);
-		input/=10;
-	}
-	length++;
-	output[10-length] = valToHex(input);
-	for(int i=0; i<length; i++){
-		str[i] = output[10-length+i];
-	}
-	return length;
-}
-
 void applyStr(uint8_t* buf, uint8_t* str, uint32_t len){
 	for(uint32_t i=0; i<len; i++){
 		buf[i] = str[i];
@@ -249,4 +233,74 @@ void regToBytes(uint32_t * reg, uint8_t * bytes){
 	bytes[2] = ((*reg) >> 8) & 0xFF;
 	bytes[1] = ((*reg) >> 16) & 0xFF;
 	bytes[0] = ((*reg) >> 24) & 0xFF;
+}
+
+uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen){ //returns length written
+	static uint8_t digitBuf[10];
+	uint8_t len = 0;
+	uint8_t nOrder = 0;
+	uint32_t nDecimal = n%
+	// clear the target
+	for(uint8_t i=0; i<maxLen; i++){
+		str[i] = ' ';
+	}
+	// absolute the input
+	if(n<0){
+		str[len] = '-';
+		n = -n;
+		len++;
+	}
+	// find number of sig figs of integer n
+	for(uint8_t i=0; digitBuf; i++){
+		digitBuf[i] = n%10;
+		n/=10;
+		nOrder++;
+	}
+	if(magnitude<0){
+		// making n smaller
+		uint8_t decimalStart = -(magnitude-1);
+		// whole part
+		for(uint8_t i=nOrder-1; i>decimalStart; i--){
+			if(len<maxLen){
+				str[len] = digitBuf[i]+'0';
+				len++;
+			}else{
+				str[len-1] = 0xf6;
+				break;
+			}
+		}
+		if(len<maxLen){
+			str[len] = '.';
+			len++;
+		}else break;
+		// decimal part
+		for(int8_t i=decimalStart; i>=0; i--){ //expecting roll over after 0
+			if(len<maxLen){
+				str[len] = digitBuf[i]+'0';
+				len++;
+			}else{
+				if(digitBuf[i]>=5&&str[len-1]<'9') str[len-1]++;
+				break;
+			}
+		}
+	}else if(magnitude>=0){
+		// making n larger
+		// n part
+		for(int8_t i=nOrder-1; i>=0; i--){
+			str[len] = digitBuf[i]+'0';
+			len++;
+		}else{
+			str[len-1] = 0xf6;
+			break;
+		}
+		// 0 part
+		for(int8_t i=0; i<magnitude; i++){
+			str[len] = '0';
+			len++;
+		}else{
+			str[len-1] = 0xf6;
+			break;
+		}
+	}
+	return len;
 }
