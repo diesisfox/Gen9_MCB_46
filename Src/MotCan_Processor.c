@@ -35,21 +35,6 @@ static void denomuralize(uint8_t* in, uint8_t* out){ //compress the error frame
 	out[2] = ((in[3]&0x8>>3)) | ((in[4]&0x3)<<1);
 }
 
-static void printUint16(uint16_t x, uint8_t* out){
-	uint8_t buf[5];
-	uint8_t msd = 4;
-	for(int8_t i=4; i>=0; i--){
-		buf[i] = (x%10) + 0x30;
-		if(x%10 != 0) msd=i;
-		x/=10;
-	}
-	uint8_t j=0;
-	for(uint8_t i=msd; i<5; i++){
-		out[j] = buf[i];
-		j++;
-	}
-}
-
 void motCan_Processor(){
 	static Can_frame_t inFrame;
 	static Can_frame_t newFrame;
@@ -85,7 +70,7 @@ void motCan_Processor(){
 			}
 			//*(uint64_t*)newFrame.Data = *(uint64_t*)inFrame.Data;
 			bxCan_sendFrame(&newFrame);
-			DD_updateRPM(data0->motorRPM * 3142 * 56 * 60 / 100); //m/h
+//			DD_updateRPM(data0->motorRPM * 3142 * 56 * 60 / 100); //m/h
 
 			break;
 		case Log_Res_Frm1_RL1:
@@ -135,7 +120,7 @@ void motCan_Processor(){
 		case LOG_FRAME_0_FL_ID:
 		case LOG_FRAME_0_FR_ID:
 			logData0 = (MotLogFrm0_t*)inFrame.Data;
-			DD_updateRPM(logData0->motorRPM);
+//			DD_updateRPM(logData0->motorRPM);
 
 			break;
 		case LOG_FRAME_1_RL_ID:
@@ -156,7 +141,7 @@ void motCan_Processor(){
 			*((uint32_t*)&mps) = *((uint32_t*)(inFrame.Data+4));
 			if(mps<0) mps*=-1;
 			mps = (mps*3600/1000)*1000;
-			DD_updateRPM((uint32_t)mps);
+//			DD_updateRPM((uint32_t)mps);
 			break;
 		default:
 			break;

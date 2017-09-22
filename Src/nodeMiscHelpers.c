@@ -250,7 +250,7 @@ uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen)
 		len++;
 	}
 	// find number of sig figs of integer n
-	for(uint8_t i=0; digitBuf; i++){
+	for(uint8_t i=0; n; i++){
 		digitBuf[i] = n%10;
 		n/=10;
 		nOrder++;
@@ -270,7 +270,7 @@ uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen)
 		if(len<maxLen){
 			str[len] = '.';
 			len++;
-		}else break;
+		}else return len;
 		// decimal part
 		for(int8_t i=decimalStart; i>=0; i--){ //expecting roll over after 0
 			if(len<maxLen){
@@ -284,19 +284,23 @@ uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen)
 	}else if(magnitude>=0){ // making n larger
 		// n part
 		for(int8_t i=nOrder-1; i>=0; i--){
-			str[len] = digitBuf[i]+'0';
-			len++;
-		}else{
-			str[len-1] = 0xf6;
-			break;
+			if(len<maxLen){
+				str[len] = digitBuf[i]+'0';
+				len++;
+			}else{
+				str[len-1] = 0xf6;
+				break;
+			}
 		}
 		// 0 part
 		for(int8_t i=0; i<magnitude; i++){
-			str[len] = '0';
-			len++;
-		}else{
-			str[len-1] = 0xf6;
-			break;
+			if(len<maxLen){
+				str[len] = '0';
+				len++;
+			}else{
+				str[len-1] = 0xf6;
+				break;
+			}
 		}
 	}
 	return len;

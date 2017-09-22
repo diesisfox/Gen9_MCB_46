@@ -207,6 +207,7 @@ static uint8_t checkBusyFlag(OLED_HandleTypeDef* holed, uint8_t* addrOut){
 	static uint8_t txBuf[3] = {0x40, 0x10, 0x00};
 	static uint8_t rxBuf[3];
 
+	(void) holed->hspi->Instance->DR;
 	xSemaphoreTake(holed->txMtx, portMAX_DELAY);
 	holed->awaitingCb = 1;
 	HAL_GPIO_WritePin(holed->csPort, holed->csPin, 0);
@@ -306,7 +307,7 @@ static void doOLED(void * pvParameters){
 
 static void writeFrame(OLED_HandleTypeDef* holed){
 	static uint8_t frame[4][20];
-	static uint8_t buf[41];
+	static uint8_t buf[129];
 
 	xQueueReceive(holed->dataQ, frame, portMAX_DELAY); //TODO: make faster
 
@@ -317,50 +318,25 @@ static void writeFrame(OLED_HandleTypeDef* holed){
 
 	buf[0] = OLED_SPI_WRITE_PREAMBLE>>8;
 	for(int i=0; i<20; i++){
-		buf[i] |= frame[0][i] >> 2;
-		buf[i+1] = frame[0][i] << 6;
+		buf[i+0x00] |= frame[0][i] >> 2;
+		buf[i+0x01] = frame[0][i] << 6;
 	}
 	for(int i=0; i<20; i++){
-		buf[i+20] |= frame[2][i] >> 2;
-		buf[i+21] = frame[2][i] << 6;
+		buf[i+0x40] |= frame[1][i] >> 2;
+		buf[i+0x41] = frame[1][i] << 6;
+	}
+	for(int i=0; i<20; i++){
+		buf[i+0x14] |= frame[2][i] >> 2;
+		buf[i+0x15] = frame[2][i] << 6;
+	}
+	for(int i=0; i<20; i++){
+		buf[i+0x54] |= frame[3][i] >> 2;
+		buf[i+0x55] = frame[3][i] << 6;
 	}
 
 	xSemaphoreTake(holed->txMtx, portMAX_DELAY);
 	HAL_GPIO_WritePin(holed->csPort, holed->csPin, 0);
-	HAL_SPI_Transmit(holed->hspi, buf, 41, 500);
-	HAL_GPIO_WritePin(holed->csPort, holed->csPin, 1);
-	xSemaphoreGive(holed->rxSem);
-	xSemaphoreTake(holed->rxSem, portMAX_DELAY);
-	xSemaphoreGive(holed->txMtx);
-
-	waitBusyFlag(holed);
-
-	sendOneCmd(holed, OLED_SPI_CMD_PREAMBLE| \
-			PACKCMD_0(CMD_SET_DDRAM_ADDRESS|DDRAM_ADDRESSIFY(1,0)));
-
-//	sendOneCmd(holed, 0b0011000000000000);
-//	sendOneCmd(holed, 0b0010101000000000);
-//
-//	sendOneCmd(holed, OLED_SPI_CMD_PREAMBLE| \
-//				PACKCMD_0(CMD_SET_DDRAM_ADDRESS|DDRAM_ADDRESSIFY(1,10)));
-//	sendOneCmd(holed, OLED_SPI_CMD_PREAMBLE| \
-//				PACKCMD_0(CMD_SET_DDRAM_ADDRESS|DDRAM_ADDRESSIFY(2,10)));
-
-	waitBusyFlag(holed);
-
-	buf[0] = OLED_SPI_WRITE_PREAMBLE>>8;
-	for(int i=0; i<20; i++){
-		buf[i] |= frame[1][i] >> 2;
-		buf[i+1] = frame[1][i] << 6;
-	}
-	for(int i=0; i<20; i++){
-		buf[i+20] |= frame[3][i] >> 2;
-		buf[i+21] = frame[3][i] << 6;
-	}
-
-	xSemaphoreTake(holed->txMtx, portMAX_DELAY);
-	HAL_GPIO_WritePin(holed->csPort, holed->csPin, 0);
-	HAL_SPI_Transmit(holed->hspi, buf, 41, 500);
+	HAL_SPI_Transmit(holed->hspi, buf, 129, 500);
 	HAL_GPIO_WritePin(holed->csPort, holed->csPin, 1);
 	xSemaphoreGive(holed->rxSem);
 	xSemaphoreTake(holed->rxSem, portMAX_DELAY);
@@ -369,10 +345,10 @@ static void writeFrame(OLED_HandleTypeDef* holed){
 
 static void writeLength(OLED_HandleTypeDef* holed, uint8_t len){
 	static uint8_t buf[80];
-    static uint8_t buf2[81];
-    
-    xQueueReceive(holed->dataQ, buf, portMAX_DELAY);
-    buf2[0] = OLED_SPI_WRITE_PREAMBLE>>8;
+	static uint8_t buf2[81];
+
+	xQueueReceive(holed->dataQ, buf, portMAX_DELAY);
+	buf2[0] = OLED_SPI_WRITE_PREAMBLE>>8;
 	for(int i=0; i<len; i++){
 		buf2[i] |= buf[i] >> 2;
 		buf2[i+1] = buf[i] << 6;

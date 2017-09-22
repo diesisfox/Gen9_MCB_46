@@ -43,7 +43,7 @@ void DD_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 void DD_init(OLED_HandleTypeDef* holedIn){
 	buf1d = (uint8_t*) buf;
-	for(uint8_t i=0; i<sizeof(buf)/sizeof(uint32_t); i+=4;){
+	for(uint8_t i=0; i<sizeof(buf)/sizeof(uint32_t); i+=4){
 		*(uint32_t*)(&buf1d[i]) = 0x20202020;
 	}
 	screenSem = xSemaphoreCreateBinary();
@@ -51,10 +51,10 @@ void DD_init(OLED_HandleTypeDef* holedIn){
 	viewResetTmr = xTimerCreate("VRT", SCREEN_HOME_DELAY, pdFALSE, 0, viewResetCb);
 	holed = holedIn;
 	OLED_displayOnOff(holed, 1, 0, 0);
-	OLED_setFontTable(holed, EURO_2);
+	OLED_setFontTable(holed, 3);
 	home_Init();
 	view1_Init();
-	view2_Init();
+	// view2_Init();
 	xTaskCreate(doDD, "DDTask", 1024, NULL, 3, &ddTask);
 }
 
@@ -64,7 +64,7 @@ static void doDD(void* pvParameters){
 		if(xSemaphoreTake(screenSem, 0)){
 			currentView++;
 			currentView %= NUM_VIEWS;
-			if(currentView != 0) xTimerReset(viewResetTmr);
+			if(currentView != 0) xTimerReset(viewResetTmr, portMAX_DELAY);
 		}
 		if(xSemaphoreTake(viewResetSem, 0)) currentView = 0;
 		switch(currentView){
@@ -78,16 +78,15 @@ static void doDD(void* pvParameters){
 				view1_Render();
 				lastView = currentView;
 				break;
-			case 2:
-				if(lastView != 2) view2_Prep();
-				view2_Render();
-				lastView = currentView;
-				break;
+			// case 2:
+			// 	if(lastView != 2) view2_Prep();
+			// 	view2_Render();
+			// 	lastView = currentView;
+			// 	break;
 			default:
 				break;
 		}
-		xSemaphoreTake(updateSem, portMAX_DELAY);
-		OLED_writeFrame(holed, buf1d);
+		OLED_writeFrame(holed, &buf[currentView][0][0]);
 		osDelay(FPS_DELAY);
 	}
 }
@@ -121,12 +120,18 @@ static uint8_t home_updateFlags; //||||||pow|kph
 static int32_t kph_micro, pwr_milli;
 static uint8_t* stat_str;
 static SemaphoreHandle_t bpsHBSem, adsHBSem, rdlHBSem, statusScrollSem;
-static uint8_t* warnStr = "\x07WARN:", tripStr = "\x07\x07TRIP:", lowStr = "\x05@", highStr = "\x06@";
-static uint8_t* bvStr = "Battery Voltage", bcStr = "Battery Current", cvStr = "Cell Voltage", ctStr = "Cell temperature";
+static uint8_t* warnStr = "\x07WARN:";
+static uint8_t* tripStr = "\x07\x07TRIP:";
+static uint8_t* lowStr = "\x05@";
+static uint8_t* highStr = "\x06@";
+static uint8_t* bvStr = "Battery Voltage";
+static uint8_t* bcStr = "Battery Current";
+static uint8_t* cvStr = "Cell Voltage";
+static uint8_t* ctStr = "Cell temperature";
 
 static void home_Init(){
-	kph_milli = pwr_milli = 0;
-	for(uint i=0; i<80; i++){
+	kph_micro = pwr_milli = 0;
+	for(uint32_t i=0; i<80; i++){
 		buf1d[i] = ' ';
 	}
 	bpsHBSem = xSemaphoreCreateBinary();
@@ -162,9 +167,6 @@ static void home_Render(){
 		buf[KPH_ADDR+len+2] = 'h';
 	}
 	if(tempUF & 0x02) buf[PWR_ADDR+printFixedNum(pwr_milli, -3, &buf[PWR_ADDR], PWR_MAX_LEN)] = 'W';
-	if(tempUF & 0x04) printFixedNum(cellv_l_micro, -6, &buf[CELLV_L_ADDR], CELLV_L_MAX_LEN);
-	if(tempUF & 0x08) printFixedNum(cellv_m_micro, -6, &buf[CELLV_M_ADDR], CELLV_M_MAX_LEN);
-	if(tempUF & 0x10) printFixedNum(cellv_h_micro, -6, &buf[CELLV_H_ADDR], CELLV_H_MAX_LEN);
 }
 
 void DD_updateSpeed(int32_t rpm){
@@ -203,7 +205,7 @@ static int32_t volt_micro, amp_micro, cellv_l_micro, cellv_m_micro, cellv_h_micr
 
 static void view1_Init(){
 	view1_updateFlags = volt_micro = amp_micro = cellv_l_micro = cellv_m_micro = cellv_h_micro = 0;
-	for(uint i=80; i<160; i++){
+	for(uint32_t i=80; i<160; i++){
 		buf1d[i] = ' ';
 	}
 	buf[1][0][0] = 'B'; buf[1][0][1] = 'A'; buf[1][0][2] = 'T'; buf[1][0][3] = ':';
@@ -223,7 +225,7 @@ static void view1_Prep(){
 	OLED_setCustomChar(holed, 6, cc_boxMiddle);
 }
 
-static void page1_Render(){
+static void view1_Render(){
 	uint8_t tempUF = view1_updateFlags;
 	view1_updateFlags = 0;
 	if(tempUF & 0x01) buf[VOLT_ADDR+printFixedNum(volt_micro, -6, &buf[VOLT_ADDR], VOLT_MAX_LEN)] = 'V';
@@ -253,7 +255,7 @@ void DD_updateVolt(int32_t volt){
 
 void DD_updateAmp(int32_t amp){
 	static int32_t ampBuf[FILTER_SIZE];
-	static uint8_t ampBufInd, voltBufFilled;
+	static uint8_t ampBufInd, ampBufFilled;
 	ampBuf[ampBufInd] = amp;
 	ampBufInd++;
 	if(ampBufInd>=FILTER_SIZE){
@@ -269,7 +271,7 @@ void DD_updateAmp(int32_t amp){
 	home_updateFlags |= 0x20;
 }
 
-void DD_updateCellV(uint8_t* data; uint8_t index){
+void DD_updateCellV(uint8_t* data, uint8_t index){
 	static uint16_t voltages[36];
 	uint8_t divisor = 0;
 	for(uint8_t i=0; i<4; i++){

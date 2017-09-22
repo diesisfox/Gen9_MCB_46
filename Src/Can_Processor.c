@@ -122,8 +122,10 @@ void Can_Processor(){
 				int32_t volt = newFrame.Data[0]<<24 | newFrame.Data[1]<<16 | newFrame.Data[2]<<8 | newFrame.Data[3]<<8;
 				int32_t crt = newFrame.Data[4]<<24 | newFrame.Data[5]<<16 | newFrame.Data[6]<<8 | newFrame.Data[7]<<8;
 				DD_updateVolt(volt);
-				DD_updateCrt(crt);
-			}else if(canID == 0)
+				DD_updateAmp(crt);
+			}else if(canID >= voltOffset && canID <= voltOffset+0xf){
+				DD_updateCellV(newFrame.Data, canID-voltOffset);
+			}
 		}
 		//custom cases for heartbeat
 		if(RxNodeID == radio_nodeID){
