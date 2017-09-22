@@ -23,6 +23,11 @@ void DD_updateVolt(int32_t volt);
 void DD_updateCrt(int32_t crt);
 void DD_updatePwr(int32_t pow);
 void DD_updateRadio();
+void DD_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
+//NEW
+void DD_updateVolt(int32_t volt);
+void DD_updateAmp(int32_t amp);
+void DD_updateCellV(uint8_t* data; uint8_t index);
 
 
 #endif /* DRIVERDISPLAY_H_ */

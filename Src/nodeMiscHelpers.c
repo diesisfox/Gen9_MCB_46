@@ -239,7 +239,6 @@ uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen)
 	static uint8_t digitBuf[10];
 	uint8_t len = 0;
 	uint8_t nOrder = 0;
-	uint32_t nDecimal = n%
 	// clear the target
 	for(uint8_t i=0; i<maxLen; i++){
 		str[i] = ' ';
@@ -256,8 +255,7 @@ uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen)
 		n/=10;
 		nOrder++;
 	}
-	if(magnitude<0){
-		// making n smaller
+	if(magnitude<0){ // making n smaller
 		uint8_t decimalStart = -(magnitude-1);
 		// whole part
 		for(uint8_t i=nOrder-1; i>decimalStart; i--){
@@ -283,8 +281,7 @@ uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen)
 				break;
 			}
 		}
-	}else if(magnitude>=0){
-		// making n larger
+	}else if(magnitude>=0){ // making n larger
 		// n part
 		for(int8_t i=nOrder-1; i>=0; i--){
 			str[len] = digitBuf[i]+'0';

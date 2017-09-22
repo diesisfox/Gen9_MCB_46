@@ -761,7 +761,7 @@ void TmrHBTimeout(void * argument){
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	switch(GPIO_Pin){
 	case ACK_BTN_Pin:
-		ackPressed = 1;
+		DD_GPIO_EXTI_Callback(GPIO_Pin);
 		break;
 	default:
 		break;

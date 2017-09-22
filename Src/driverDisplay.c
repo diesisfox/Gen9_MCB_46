@@ -14,13 +14,13 @@
 
 static uint8_t buf[NUM_VIEWS][4][20];
 static uint8_t* buf1d;
-static SemaphoreHandle_t updateSem, radioSem, nextSem;
-static uint8_t linesToUpdate = 0;
+static SemaphoreHandle_t updateSem, radioSem, screenSem;
+static uint8_t currentView = 0;
 static OLED_HandleTypeDef* holed;
 static TaskHandle_t ddTask, radioAnimTask, rpmAnimTask, speedAnimTask;
 static uint16_t rpm = 0;
-static int32_t voltBuf[FILTER_SIZE], crtBuf[FILTER_SIZE], powBuf[FILTER_SIZE];
-static uint8_t voltBufInd = 0, crtBufInd = 0, powBufInd = 0;
+// static int32_t voltBuf[FILTER_SIZE], crtBuf[FILTER_SIZE], powBuf[FILTER_SIZE];
+// static uint8_t voltBufInd = 0, crtBufInd = 0, powBufInd = 0;
 static uint8_t bufFilled = 0; //?|?|?|?|?|p|i|v
 
 static void doDD(void* pvParameters);
@@ -31,6 +31,10 @@ static void setupIcons();
 static void writeIcons();
 static void setIconChars();
 
+void DD_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+	if(screenSem) xSemaphoreGiveFromISR(screenSem, NULL);
+}
+
 void DD_init(OLED_HandleTypeDef* holedIn){
 	buf1d = (uint8_t*) buf;
 	for(uint8_t i=0; i<sizeof(buf)/sizeof(uint32_t); i+=4;){
@@ -38,17 +42,48 @@ void DD_init(OLED_HandleTypeDef* holedIn){
 	}
 	updateSem = xSemaphoreCreateBinary();
 	radioSem = xSemaphoreCreateBinary();
-	nextSem = xSemaphoreCreateBinary();
+	screenSem = xSemaphoreCreateBinary();
 	holed = holedIn;
-	setupIcons();
 	OLED_displayOnOff(holed, 1, 0, 0);
 	OLED_setFontTable(holed, EURO_2);
+	home_Init();
+	view1_Init();
+	view2_Init();
 	xTaskCreate(doDD, "DDTask", 1024, NULL, 3, &ddTask);
-	xTaskCreate(doRadioAnim, "RadioAnimTask", 512, NULL, 2, &radioAnimTask);
-	xTaskCreate(doRpmAnim, "RpmAnimTask", 512, NULL, 2, &rpmAnimTask);
+	// xTaskCreate(doRadioAnim, "RadioAnimTask", 512, NULL, 2, &radioAnimTask);
+	// xTaskCreate(doRpmAnim, "RpmAnimTask", 512, NULL, 2, &rpmAnimTask);
 }
 
-/* HOME PAGE
+static void doDD(void* pvParameters){
+	uint8_t lastView = 0xff;
+	for(;;){
+		switch(currentView){
+			case 0:
+				if(lastView != 0) home_Prep();
+				home_Render();
+				lastView = 0;
+				break;
+			case 1:
+				if(lastView != 1) view1_Prep();
+				view1_Render();
+				lastView = 1;
+				break;
+			case 2:
+				if(lastView != 2) view2_Prep();
+				view2_Render();
+				lastView = 2;
+				break;
+			default:
+				break;
+		}
+		xSemaphoreTake(updateSem, portMAX_DELAY);
+		OLED_writeFrame(holed, buf1d);
+		osDelay(FPS_DELAY);
+	}
+}
+
+
+/* HOME VIEW
 ┌────────────────────┐
 │Aaaa.aAAA•Bbbbbb.bbB│
 │--------------------│
@@ -70,8 +105,55 @@ A:speed; B:power; C:trips&status; D:BPS HB; E:ADS HB; F:radio HB;
 #define RDL_HB_ADDR		0][2][19
 static int32_t kph_milli, pwr_milli;
 static uint8_t* stat_str;
+static SemaphoreHandle_t bpsHBSem, adsHBSem, rdlHBSem, statusScrollSem;
+static uint8_t* warnStr = "\x07WARN:", tripStr = "\x07\x07TRIP:", lowStr = "\x05@", highStr = "\x06@";
+static uint8_t* bvStr = "Battery Voltage", bcStr = "Battery Current", cvStr = "Cell Voltage", ctStr = "Cell temperature";
 
-/* PAGE 1: BATTERY MAIN STATS
+static void home_Init(){
+	kph_milli = pwr_milli = 0;
+	for(uint i=0; i<80; i++){
+		buf1d[i] = ' ';
+	}
+	bpsHBSem = xSemaphoreCreateBinary();
+	adsHBSem = xSemaphoreCreateBinary();
+	rdlHBSem = xSemaphoreCreateBinary();
+	statusScrollSem = xSemaphoreCreateBinary();
+	buf[KPH_ICO_ADDR] = 0;
+	buf[PWR_ICO_ADDR] = 1;
+	buf[BPS_HB_ADDR] = 2;
+	buf[ADS_HB_ADDR] = 3;
+	buf[RDL_HB_ADDR] = 4;
+}
+
+static void view1_Init(){
+	view1_updateFlags = volt_micro = amp_micro = cellv_l_micro = cellv_m_micro = cellv_h_micro = 0;
+
+	buf[1][0][0] = 'B'; buf[1][0][1] = 'A'; buf[1][0][2] = 'T'; buf[1][0][3] = ':';
+	buf[VOLT_ICO_ADDR] = 0;
+	buf[CUR_ICO_ADDR] = 1;
+	buf[CELLV_ICO_ADDR0] = 3;
+	buf[CELLV_ICO_ADDR1] = 0;
+	buf[CELLV_L_ICO_ADDR] = 4; buf[CELLV_M_ICO_ADDR] = 5; buf[CELLV_H_ICO_ADDR] = 6;
+}
+
+static void view1_Prep(){
+	OLED_setCustomChar(holed, 0, cc_lightning);
+	OLED_setCustomChar(holed, 1, cc_plug);
+	OLED_setCustomChar(holed, 3, cc_battery80);
+	OLED_setCustomChar(holed, 4, cc_arrowBottom);
+	OLED_setCustomChar(holed, 5, cc_arrowTop);
+	OLED_setCustomChar(holed, 6, cc_boxMiddle);
+}
+
+static void page1_Render(){
+	buf[VOLT_ADDR+printFixedNum(volt_micro, -6, &buf[VOLT_ADDR], VOLT_MAX_LEN)] = 'V';
+	buf[CUR_ADDR+printFixedNum(amp_micro, -6, &buf[CUR_ADDR], CUR_MAX_LEN)] = 'A';
+	printFixedNum(cellv_l_micro, -6, &buf[CELLV_L_ADDR], CELLV_L_MAX_LEN);
+	printFixedNum(cellv_m_micro, -6, &buf[CELLV_M_ADDR], CELLV_M_MAX_LEN);
+	printFixedNum(cellv_h_micro, -6, &buf[CELLV_H_ADDR], CELLV_H_MAX_LEN);
+}
+
+/* VIEW 1: BATTERY MAIN STATS
 ┌────────────────────┐
 │BAT:•Aaaa.aA•Bbb.bbB│
 │--------------------│
@@ -97,9 +179,99 @@ A:voltage; B:current; C:low cell volt; D: avg cell volt; E: high cell volt; F:�
 #define CELLV_H_ICO_ADDR	1][2][14
 #define CELLV_H_ADDR		1][2][15
 #define CELLV_H_MAX_LEN		5
-static int32_t volt_milli, amp_milli, cellv_l_milli, cellv_m_milli, cellv_h_milli;
+static uint8_t view1_updateFlags; //|||||pow|amp|volt
+static int32_t volt_micro, amp_micro, cellv_l_micro, cellv_m_micro, cellv_h_micro;
+static void view1_Init();
+static void view1_Prep();
+static void view1_Render();
 
-/* PAGE 2: BPS TEMPERATURES
+static void view1_Init(){
+	view1_updateFlags = volt_micro = amp_micro = cellv_l_micro = cellv_m_micro = cellv_h_micro = 0;
+	for(uint i=80; i<160; i++){
+		buf1d[i] = ' ';
+	}
+	buf[1][0][0] = 'B'; buf[1][0][1] = 'A'; buf[1][0][2] = 'T'; buf[1][0][3] = ':';
+	buf[VOLT_ICO_ADDR] = 0;
+	buf[CUR_ICO_ADDR] = 1;
+	buf[CELLV_ICO_ADDR0] = 3;
+	buf[CELLV_ICO_ADDR1] = 0;
+	buf[CELLV_L_ICO_ADDR] = 4; buf[CELLV_M_ICO_ADDR] = 5; buf[CELLV_H_ICO_ADDR] = 6;
+}
+
+static void view1_Prep(){
+	OLED_setCustomChar(holed, 0, cc_lightning);
+	OLED_setCustomChar(holed, 1, cc_plug);
+	OLED_setCustomChar(holed, 3, cc_battery80);
+	OLED_setCustomChar(holed, 4, cc_arrowBottom);
+	OLED_setCustomChar(holed, 5, cc_arrowTop);
+	OLED_setCustomChar(holed, 6, cc_boxMiddle);
+}
+
+static void page1_Render(){
+	buf[VOLT_ADDR+printFixedNum(volt_micro, -6, &buf[VOLT_ADDR], VOLT_MAX_LEN)] = 'V';
+	buf[CUR_ADDR+printFixedNum(amp_micro, -6, &buf[CUR_ADDR], CUR_MAX_LEN)] = 'A';
+	printFixedNum(cellv_l_micro, -6, &buf[CELLV_L_ADDR], CELLV_L_MAX_LEN);
+	printFixedNum(cellv_m_micro, -6, &buf[CELLV_M_ADDR], CELLV_M_MAX_LEN);
+	printFixedNum(cellv_h_micro, -6, &buf[CELLV_H_ADDR], CELLV_H_MAX_LEN);
+}
+
+void DD_updateVolt(int32_t volt){
+	static int32_t voltBuf[FILTER_SIZE];
+	static uint8_t voltBufInd, voltBufFilled;
+	voltBuf[voltBufInd] = volt;
+	voltBufInd++;
+	if(voltBufInd>=FILTER_SIZE){
+		voltBufFilled = 1;
+		voltBufInd = 0;
+	}
+	volt_micro = 0;
+	for(uint8_t i=0; i<(voltBufFilled?16:voltBufInd); i++){
+		volt_micro += voltBuf[i]/(voltBufFilled?16:voltBufInd);
+	}
+	pwr_milli = (volt_micro/1000)*(amp_micro/1000)/1000;
+	view1_updateFlags |= 0x05;
+}
+
+void DD_updateAmp(int32_t amp){
+	static int32_t ampBuf[FILTER_SIZE];
+	static uint8_t ampBufInd, voltBufFilled;
+	ampBuf[ampBufInd] = amp;
+	ampBufInd++;
+	if(ampBufInd>=FILTER_SIZE){
+		ampBufFilled = 1;
+		ampBufInd = 0;
+	}
+	amp_micro = 0;
+	for(uint8_t i=0; i<(ampBufFilled?16:ampBufInd); i++){
+		amp_micro += ampBuf[i]/(ampBufFilled?16:ampBufInd);
+	}
+	pwr_milli = (volt_micro/1000)*(amp_micro/1000)/1000;
+	view1_updateFlags |= 0x06;
+}
+
+void DD_updateCellV(uint8_t* data; uint8_t index){
+	static uint16_t voltages[36];
+	uint8_t divisor = 0;
+	for(uint8_t i=0; i<4; i++){
+		voltages[index*4+i] = data[i*2]<<8 | data[i*2+1];
+	}
+	cellv_m_micro = cellv_h_micro = 0;
+	cellv_l_micro = 99999999;
+	for(uint8_t i=0; i<36; i++){
+		int32_t temp = voltages[i] * 100;
+		if(temp > 1000){
+			cellv_m_micro+=temp;
+			divisor++;
+			if(temp > cellv_h_micro) cellv_h_micro = temp;
+			if(temp < cellv_l_micro) cellv_l_micro = temp;
+		}
+	}
+	cellv_m_micro /= divisor;
+	if(cellv_l_micro > cellv_h_micro) cellv_l_micro = cellv_h_micro;
+}
+
+
+/* VIEW 2: BPS TEMPERATURES
 ┌────────────────────┐
 │TEMP1:[°C]•AaaaBbb.b│
 │--------------------│
@@ -127,7 +299,8 @@ A:mot temp; B:driver temp; C:low cel temp; D:avg cel temp; E:high cel temp; F:�
 #define CELLT_H_MAX_LEN		5
 static int32_t mottemp_milli, drvtemp_milli, cellt_l_milli, cellt_m_milli, cellt_h_milli;
 
-/* PAGE 3: PPT STATS
+
+/* VIEW 3: PPT STATS
 ┌────────────────────┐
 │PPT:•D[°C]•AaaBbbCcc│
 │--------------------│
@@ -136,6 +309,7 @@ static int32_t mottemp_milli, drvtemp_milli, cellt_l_milli, cellt_m_milli, cellt
 └────────────────────┘
 A:temp A; B:temp B; C: temp C; D:🌡; E:power A; F:power B; G:power C; H:🔌;
 */
+
 
 /* VIEW X0
 ┌────────────────────┐
@@ -147,6 +321,7 @@ A:temp A; B:temp B; C: temp C; D:🌡; E:power A; F:power B; G:power C; H:🔌;
 A: rpm/speed; B: voltage; C: current; D:power; E:radio HB; F:ack;
 G: driver temp; H: SoC; I: avg cell volt; J: trips&status;
 */
+
 
 /* VIEW X1
 ┌────────────────────┐
@@ -168,38 +343,6 @@ void DD_updateRPM(uint32_t rpmIn){
 	}
 	len += intToDec(rpm, &(buf[KPH_ADDR]));
 	applyStr(&(buf[KPH_ADDR+len]), "kph", 3);
-	if(updateSem) xSemaphoreGive(updateSem);
-}
-
-void DD_updateVolt(int32_t volt){
-	voltBuf[voltBufInd] = volt;
-	volt = 0;
-	for(int i=0; i<FILTER_SIZE; i++){
-		volt += voltBuf[i]/((bufFilled&0x01)?FILTER_SIZE:(voltBufInd+1));
-	}
-	voltBufInd++;
-	if(voltBufInd == FILTER_SIZE){
-		voltBufInd = 0;
-		bufFilled |= 0x01;
-	}
-	uint8_t len = 0;
-	for(uint8_t i=0; i<7; i++){
-		buf[VOLT_ADDR+i] = ' ';
-	}
-	if(volt<0){
-		buf[VOLT_ADDR+len] = '-';
-		len++;
-		volt = -volt;
-	}
-	int32_t volt1 = volt/1000000;
-	len += intToDec(volt1, &(buf[VOLT_ADDR+len]));
-	volt1 = (volt%1000000)/10000;
-	if(volt1){
-		buf[VOLT_ADDR+len] = '.';
-		len++;
-		len += intToDec(volt1, &(buf[VOLT_ADDR+len]));
-	}
-	buf[VOLT_ADDR+len] = 'V';
 	if(updateSem) xSemaphoreGive(updateSem);
 }
 
@@ -300,14 +443,6 @@ void DD_updateDriverTemp(int32_t uC){
 	if(updateSem) xSemaphoreGive(updateSem);
 }
 
-static void doDD(void* pvParameters){
-	for(;;){
-		xSemaphoreTake(updateSem, portMAX_DELAY);
-		OLED_writeFrame(holed, buf1d);
-		osDelay(FPS_DELAY);
-	}
-}
-
 static void writeIcons(){
 	buf[KPH_ADDR-1] = 0;
 	buf[VOLT_ADDR-1] = 1;
@@ -349,20 +484,6 @@ static void doRpmAnim(void* arg){
 	uint8_t* frames[4] = {cc_rpm0, cc_rpm1, cc_rpm2, cc_rpm3};
 	uint16_t delay = 0;
 	for(;;){
-//		if(rpm == 0){
-//			frame = 3;
-//			delay = 500;
-//		}else if(rpm < 50){
-//			delay = 500;
-//		}else if(rpm < 100){
-//			delay = 333;
-//		}else if(rpm < 200){
-//			delay = 200;
-//		}else if(rpm < 300){
-//			delay = 150;
-//		}else{
-//			delay = 100;
-//		}
 	  	if(rpm == 0){
 			frame = 3;
 		}

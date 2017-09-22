@@ -36,5 +36,16 @@ extern uint8_t cc_sunOn[8];
 extern uint8_t cc_megaphoneOff[8];
 extern uint8_t cc_megaphoneOn[8];
 extern uint8_t cc_exclamation[8];
+extern uint8_t cc_thermometer[8];
+extern uint8_t cc_battery100[8];
+extern uint8_t cc_battery80[8];
+extern uint8_t cc_battery60[8];
+extern uint8_t cc_battery40[8];
+extern uint8_t cc_battery20[8];
+extern uint8_t cc_battery0[8];
+extern uint8_t cc_arrowTop[8];
+extern uint8_t cc_arrowBottom[8];
+extern uint8_t cc_boxMiddle[8];
+extern uint8_t cc_xBar[8];
 
 #endif /* CUSTOMCHARS_H_ */
