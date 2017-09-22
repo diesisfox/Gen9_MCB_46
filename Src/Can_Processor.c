@@ -116,20 +116,18 @@ void Can_Processor(){
 				xSemaphoreGive(nodeEntryMtxHandle[RxNodeID]);
 			}
 			bxCan_sendFrame(&newFrame);
-		}else if(canID == battPwr){
-			int32_t volt = newFrame.Data[0]<<24 | newFrame.Data[1]<<16 | newFrame.Data[2]<<8 | newFrame.Data[3]<<8;
-//            if(volt&0x80000000) volt-=0x100000000;
-			int32_t crt = newFrame.Data[4]<<24 | newFrame.Data[5]<<16 | newFrame.Data[6]<<8 | newFrame.Data[7]<<8;
-//            if(crt&0x80000000) crt-=0x100000000;
-			DD_updateVolt(volt);
-			DD_updateCrt(crt);
-			volt/=1000;
-            crt/=1000;
-			DD_updatePwr(volt*crt);
+		}else{
+			//custom cases for display data
+			if(canID == battPwr){
+				int32_t volt = newFrame.Data[0]<<24 | newFrame.Data[1]<<16 | newFrame.Data[2]<<8 | newFrame.Data[3]<<8;
+				int32_t crt = newFrame.Data[4]<<24 | newFrame.Data[5]<<16 | newFrame.Data[6]<<8 | newFrame.Data[7]<<8;
+				DD_updateVolt(volt);
+				DD_updateCrt(crt);
+			}else if(canID == 0)
 		}
-
+		//custom cases for heartbeat
 		if(RxNodeID == radio_nodeID){
-			DD_updateRadio();
+			// DD_updateRadio();
 		}
 		// Ignore other cases
 	}
