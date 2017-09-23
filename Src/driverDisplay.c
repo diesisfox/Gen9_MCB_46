@@ -20,6 +20,7 @@ static uint8_t* buf1d;
 static SemaphoreHandle_t updateSem, radioSem, screenSem, viewResetSem;
 static TimerHandle_t viewResetTmr;
 static uint8_t currentView = 0;
+static uint8_t lastView = 0xff;
 static OLED_HandleTypeDef* holed;
 static TaskHandle_t ddTask;
 
@@ -31,6 +32,7 @@ static void viewResetCb(TimerHandle_t xTimer);
 static void home_Init();
 static void home_Prep();
 static void home_Render();
+static void status_Render();
 //VIEW 1
 static void view1_Init();
 static void view1_Prep();
@@ -43,9 +45,9 @@ void DD_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 void DD_init(OLED_HandleTypeDef* holedIn){
 	buf1d = (uint8_t*) buf;
-	for(uint8_t i=0; i<sizeof(buf)/sizeof(uint32_t); i+=4){
-		*(uint32_t*)(&buf1d[i]) = 0x20202020;
-	}
+//	for(uint8_t i=0; i<sizeof(buf)/sizeof(uint32_t); i+=4){
+//		*(uint32_t*)(&buf1d[i]) = 0x23202320;
+//	}
 	screenSem = xSemaphoreCreateBinary();
 	viewResetSem = xSemaphoreCreateBinary();
 	viewResetTmr = xTimerCreate("VRT", SCREEN_HOME_DELAY, pdFALSE, 0, viewResetCb);
@@ -59,7 +61,7 @@ void DD_init(OLED_HandleTypeDef* holedIn){
 }
 
 static void doDD(void* pvParameters){
-	uint8_t lastView = 0xff;
+	osDelay(1000);
 	for(;;){
 		if(xSemaphoreTake(screenSem, 0)){
 			currentView++;
@@ -109,7 +111,7 @@ A:speed; B:power; C:trips&status; D:BPS HB; E:ADS HB; F:radio HB;
 #define KPH_ADDR 		0][0][1
 #define KPH_MAX_LEN		5
 #define PWR_ICO_ADDR	0][0][10
-#define PWR_ADDR 		0][0][9
+#define PWR_ADDR 		0][0][11
 #define PWR_MAX_LEN		8
 #define STAT_ADDR		0][2][0
 #define STAT_MAX_LEN	16
@@ -117,6 +119,7 @@ A:speed; B:power; C:trips&status; D:BPS HB; E:ADS HB; F:radio HB;
 #define ADS_HB_ADDR		0][2][18
 #define RDL_HB_ADDR		0][2][19
 static uint8_t home_updateFlags; //||||||pow|kph
+static uint32_t tripFlags; //[over|warn|en] => ||||||cellT|cellV|battC|battV
 static int32_t kph_micro, pwr_milli;
 static uint8_t* stat_str;
 static SemaphoreHandle_t bpsHBSem, adsHBSem, rdlHBSem, statusScrollSem;
@@ -128,9 +131,10 @@ static uint8_t* bvStr = "Battery Voltage";
 static uint8_t* bcStr = "Battery Current";
 static uint8_t* cvStr = "Cell Voltage";
 static uint8_t* ctStr = "Cell temperature";
+static uint8_t* okStr = "Systems A-OK!";
 
 static void home_Init(){
-	kph_micro = pwr_milli = 0;
+	kph_micro = pwr_milli = tripFlags = 0;
 	for(uint32_t i=0; i<80; i++){
 		buf1d[i] = ' ';
 	}
@@ -167,12 +171,27 @@ static void home_Render(){
 		buf[KPH_ADDR+len+2] = 'h';
 	}
 	if(tempUF & 0x02) buf[PWR_ADDR+printFixedNum(pwr_milli, -3, &buf[PWR_ADDR], PWR_MAX_LEN)] = 'W';
+	status_Render();
+}
+
+static void status_Render(){
+	static uint8_t tripNum;
+	if(tripFlags){
+		for(uint8_t i=0; i<10; i++){
+			if(tripFlags & (1<<(i*3))){
+
+			}
+		}
+	}else{
+		strcpyN(okStr, &buf[STAT_ADDR], STAT_MAX_LEN);
+	}
 }
 
 void DD_updateSpeed(int32_t rpm){
 	kph_micro = rpm * WHEEL_DIAMETER_MM * 3141593 * 60;
 	home_updateFlags |= 0x01;
 }
+
 
 /* VIEW 1: BATTERY MAIN STATS
 ┌────────────────────┐
@@ -213,7 +232,7 @@ static void view1_Init(){
 	buf[CUR_ICO_ADDR] = 1;
 	buf[CELLV_ICO_ADDR0] = 3;
 	buf[CELLV_ICO_ADDR1] = 0;
-	buf[CELLV_L_ICO_ADDR] = 4; buf[CELLV_M_ICO_ADDR] = 5; buf[CELLV_H_ICO_ADDR] = 6;
+	buf[CELLV_L_ICO_ADDR] = 4; buf[CELLV_M_ICO_ADDR] = 6; buf[CELLV_H_ICO_ADDR] = 5;
 }
 
 static void view1_Prep(){
@@ -250,7 +269,7 @@ void DD_updateVolt(int32_t volt){
 	}
 	pwr_milli = (volt_micro/1000)*(amp_micro/1000)/1000;
 	view1_updateFlags |= 0x01;
-	home_updateFlags |= 0x20;
+	home_updateFlags |= 0x02;
 }
 
 void DD_updateAmp(int32_t amp){
@@ -268,7 +287,7 @@ void DD_updateAmp(int32_t amp){
 	}
 	pwr_milli = (volt_micro/1000)*(amp_micro/1000)/1000;
 	view1_updateFlags |= 0x02;
-	home_updateFlags |= 0x20;
+	home_updateFlags |= 0x02;
 }
 
 void DD_updateCellV(uint8_t* data, uint8_t index){

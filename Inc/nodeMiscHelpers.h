@@ -71,6 +71,7 @@ uint8_t HexToVal(uint8_t i);
 void bytesToReg(uint8_t * byte, uint32_t * reg);
 void regToBytes(uint32_t * reg, uint8_t * bytes);
 uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen);
+void strcpyN(uint8_t* src, uint8_t* dest, uint32_t len);
 void intToHex(uint32_t input, uint8_t *str, int length);
 void applyStr(uint8_t* buf, uint8_t* str, uint32_t len);
 

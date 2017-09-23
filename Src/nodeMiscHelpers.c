@@ -236,7 +236,7 @@ void regToBytes(uint32_t * reg, uint8_t * bytes){
 }
 
 uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen){ //returns length written
-	static uint8_t digitBuf[10];
+	uint8_t digitBuf[10] = {0};
 	uint8_t len = 0;
 	uint8_t nOrder = 0;
 	// clear the target
@@ -256,7 +256,7 @@ uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen)
 		nOrder++;
 	}
 	if(magnitude<0){ // making n smaller
-		uint8_t decimalStart = -(magnitude-1);
+		uint8_t decimalStart = -magnitude-1;
 		// whole part
 		for(uint8_t i=nOrder-1; i>decimalStart; i--){
 			if(len<maxLen){
@@ -304,4 +304,10 @@ uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen)
 		}
 	}
 	return len;
+}
+
+void strcpyN(uint8_t* src, uint8_t* dest, uint32_t len){
+	for(int32_t i=0; i<len; i++){
+		dest[i] = src[i];
+	}
 }
