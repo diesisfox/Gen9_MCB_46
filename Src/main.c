@@ -660,11 +660,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LEFT_SIG_SWITCH_Pin */
-  GPIO_InitStruct.Pin = LEFT_SIG_SWITCH_Pin;
+  /*Configure GPIO pins : LEFT_SIG_SWITCH_Pin ACK_BTN_Pin */
+  GPIO_InitStruct.Pin = LEFT_SIG_SWITCH_Pin|ACK_BTN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(LEFT_SIG_SWITCH_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PA0 PA8 PA15 */
   GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_8|GPIO_PIN_15;
@@ -692,12 +692,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : ACK_BTN_Pin */
-  GPIO_InitStruct.Pin = ACK_BTN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(ACK_BTN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : BRK_SWITCH_Pin RIGHT_SIG_SWITCH_Pin HAZARD_SWITCH_Pin */
   GPIO_InitStruct.Pin = BRK_SWITCH_Pin|RIGHT_SIG_SWITCH_Pin|HAZARD_SWITCH_Pin;
@@ -740,9 +734,6 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(LEFT_LIGHT_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
-
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
@@ -760,9 +751,6 @@ void TmrHBTimeout(void * argument){
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	switch(GPIO_Pin){
-	case ACK_BTN_Pin:
-		DD_GPIO_EXTI_Callback(GPIO_Pin);
-		break;
 	default:
 		break;
 	}

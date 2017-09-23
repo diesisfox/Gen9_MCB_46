@@ -14,11 +14,12 @@
 #define WHEEL_DIAMETER_MM 559
 #define WHEEL_CIRC_MM 1755
 #define SCREEN_HOME_DELAY 3000
+#define ACK_REFRESH_PERIOD 50
 
 static uint8_t buf[NUM_VIEWS][4][20];
 static uint8_t* buf1d;
 static SemaphoreHandle_t updateSem, radioSem, screenSem, viewResetSem;
-static TimerHandle_t viewResetTmr;
+static TimerHandle_t viewResetTmr, ackMonitorTmr;
 static uint8_t currentView = 0;
 static uint8_t lastView = 0xff;
 static OLED_HandleTypeDef* holed;
@@ -37,6 +38,9 @@ static void status_Render();
 static void view1_Init();
 static void view1_Prep();
 static void view1_Render();
+static uint8_t view1_updateFlags; //|||cellv_h|cellv_m|cellv_l|amp|volt
+static int32_t volt_micro, amp_micro, cellv_l_micro, cellv_m_micro, cellv_h_micro;
+//VIEW 2
 
 
 void DD_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
@@ -51,6 +55,8 @@ void DD_init(OLED_HandleTypeDef* holedIn){
 	screenSem = xSemaphoreCreateBinary();
 	viewResetSem = xSemaphoreCreateBinary();
 	viewResetTmr = xTimerCreate("VRT", SCREEN_HOME_DELAY, pdFALSE, 0, viewResetCb);
+	viewResetTmr = xTimerCreate("AMT", ACK_REFRESH_PERIOD, pdTRUE, 0, ackMonitorCb);
+	xTimerStart(viewResetTmr, portMAX_DELAY);
 	holed = holedIn;
 	OLED_displayOnOff(holed, 1, 0, 0);
 	OLED_setFontTable(holed, 3);
@@ -97,6 +103,13 @@ static void viewResetCb(TimerHandle_t xTimer){
 	xSemaphoreGive(viewResetSem);
 }
 
+static void ackMonitorCb(TimerHandle_t xTimer){
+	static uint8_t lastState;
+	uint8_t currentState = readSwitch(ACK_BTN);
+	if(lastState==1 && ~currentState==0) xSemaphoreGive(screenSem);
+	lastState = currentState;
+}
+
 
 /* HOME VIEW
 ┌────────────────────┐
@@ -123,15 +136,15 @@ static uint32_t tripFlags; //[over|warn|en] => ||||||cellT|cellV|battC|battV
 static int32_t kph_micro, pwr_milli;
 static uint8_t* stat_str;
 static SemaphoreHandle_t bpsHBSem, adsHBSem, rdlHBSem, statusScrollSem;
-static uint8_t* warnStr = "\x07WARN:";
-static uint8_t* tripStr = "\x07\x07TRIP:";
-static uint8_t* lowStr = "\x05@";
-static uint8_t* highStr = "\x06@";
-static uint8_t* bvStr = "Battery Voltage";
-static uint8_t* bcStr = "Battery Current";
-static uint8_t* cvStr = "Cell Voltage";
-static uint8_t* ctStr = "Cell temperature";
-static uint8_t* okStr = "Systems A-OK!";
+#define warnStr ("\x07")
+#define tripStr ("\x07\x07")
+#define lowStr ("\x05@")
+#define highStr ("\x06@")
+#define bvStr ("BAT-V")
+#define bcStr ("BAT-I")
+#define cvStr ("CEL-V")
+#define ctStr ("CEL-T")
+#define okStr ("Systems A-OK!")
 
 static void home_Init(){
 	kph_micro = pwr_milli = tripFlags = 0;
@@ -183,7 +196,7 @@ static void status_Render(){
 			}
 		}
 	}else{
-		strcpyN(okStr, &buf[STAT_ADDR], STAT_MAX_LEN);
+		strcpyN(okStr, &buf[STAT_ADDR], strsz(okStr));
 	}
 }
 
@@ -219,8 +232,8 @@ A:voltage; B:current; C:low cell volt; D: avg cell volt; E: high cell volt; F:�
 #define CELLV_H_ICO_ADDR	1][2][14
 #define CELLV_H_ADDR		1][2][15
 #define CELLV_H_MAX_LEN		5
-static uint8_t view1_updateFlags; //|||cellv_h|cellv_m|cellv_l|amp|volt
-static int32_t volt_micro, amp_micro, cellv_l_micro, cellv_m_micro, cellv_h_micro;
+// static uint8_t view1_updateFlags; //|||cellv_h|cellv_m|cellv_l|amp|volt
+// static int32_t volt_micro, amp_micro, cellv_l_micro, cellv_m_micro, cellv_h_micro;
 
 static void view1_Init(){
 	view1_updateFlags = volt_micro = amp_micro = cellv_l_micro = cellv_m_micro = cellv_h_micro = 0;

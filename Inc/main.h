@@ -81,7 +81,6 @@
 #define ENGAGE_LIGHT_GPIO_Port GPIOC
 #define ACK_BTN_Pin GPIO_PIN_5
 #define ACK_BTN_GPIO_Port GPIOC
-#define ACK_BTN_EXTI_IRQn EXTI9_5_IRQn
 #define BRK_SWITCH_Pin GPIO_PIN_0
 #define BRK_SWITCH_GPIO_Port GPIOB
 #define SPI1_CS_Pin GPIO_PIN_1

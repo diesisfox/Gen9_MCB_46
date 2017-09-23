@@ -66,6 +66,7 @@ void reportSwitches(uint32_t x);
 void sendAckPressed();
 
 
+#define strsz(s) (sizeof(s)-1)
 uint8_t valToHex(uint8_t i);
 uint8_t HexToVal(uint8_t i);
 void bytesToReg(uint8_t * byte, uint32_t * reg);
