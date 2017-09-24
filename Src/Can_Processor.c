@@ -118,7 +118,9 @@ void Can_Processor(){
 			bxCan_sendFrame(&newFrame);
 		}else{
 			//custom cases for display data
-			if(canID == battPwr){
+			if(canID == bpsTrip){
+				DD_updateTrip(newFrame.Data);
+			}else if(canID == battPwr){
 				int32_t volt = newFrame.Data[0]<<24 | newFrame.Data[1]<<16 | newFrame.Data[2]<<8 | newFrame.Data[3]<<8;
 				int32_t crt = newFrame.Data[4]<<24 | newFrame.Data[5]<<16 | newFrame.Data[6]<<8 | newFrame.Data[7]<<8;
 				DD_updateVolt(volt);

@@ -19,6 +19,7 @@
 
 void DD_init(OLED_HandleTypeDef* holedIn);
 void DD_updateSpeed(int16_t rpm);
+void DD_updateTrip(uint8_t* data);
 void DD_updateVolt(int32_t volt);
 void DD_updateAmp(int32_t amp);
 void DD_updateCellV(uint8_t* data, uint8_t index);

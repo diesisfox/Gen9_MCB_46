@@ -15,6 +15,7 @@
 // ##     ## ##       ##       ##       ######### ##   ##   #########    ##     ##  ##     ## ##  ####       ##
 // ##     ## ##       ##    ## ##       ##     ## ##    ##  ##     ##    ##     ##  ##     ## ##   ### ##    ##
 // ########  ########  ######  ######## ##     ## ##     ## ##     ##    ##    ####  #######  ##    ##  ######
+
 #define MAX_FPS 30
 #define FPS_DELAY 1000/MAX_FPS
 #define FILTER_SIZE 16
@@ -48,6 +49,7 @@ static uint32_t tripFlags; //[over|warn|en] => ||||||cellT|cellV|battC|battV
 static int32_t kph_micro, pwr_milli;
 static SemaphoreHandle_t bpsHBSem, adsHBSem, rdlHBSem, statusScrollSem;
 static TimerHandle_t statusScrollTmr;
+static int32_t volt_micro_trip, amp_micro_trip, cellt_micro_trip, cellv_micro_trip;
 //VIEW 1
 static void view1_Init();
 static void view1_Prep();
@@ -69,6 +71,7 @@ static int32_t mottemp_micro, drvtemp_micro, cellt_l_micro, cellt_m_micro, cellt
 // ##    ##  ##       ##  #### ##       ##   ##   ######### ##
 // ##    ##  ##       ##   ### ##       ##    ##  ##     ## ##
 //  ######   ######## ##    ## ######## ##     ## ##     ## ########
+
 void DD_init(OLED_HandleTypeDef* holedIn){
 	buf1d = (uint8_t*) buf;
 	screenSem = xSemaphoreCreateBinary();
@@ -137,6 +140,7 @@ static void ackMonitorCb(TimerHandle_t xTimer){
 ##     ## ##     ## ##     ## ##           ##   ##   ##  ##       ##  ##  ##
 ##     ## ##     ## ##     ## ##            ## ##    ##  ##       ##  ##  ##
 ##     ##  #######  ##     ## ########       ###    #### ########  ###  ###
+
 ┌────────────────────┐
 │Aaaa.aAAA•Bbbbbb.bbB│
 │--------------------│
@@ -220,6 +224,39 @@ void DD_updateSpeed(int16_t rpm){
 	home_updateFlags |= 0x01;
 }
 
+void DD_updateTrip(uint8_t* data){
+	uint16_t tripID = data[0]<<8 | data[1];
+	if(tripID>=0x500 && tripID<=0x51f){
+		// cell temp
+		int32_t temp = __rev(*(int32_t)(data+2));
+		tripFlags |= 1<<3*3;
+		tripFlags &= ~(2<<3*3);
+		(temp<CELLT_MID_THRESHOLD)?(tripFlags&=~(4<<3*3)):(tripFlags|=4<<3*3);
+		cellt_micro_trip = temp;
+	}else if(tripID>=0x000 && tripID<=0x008){
+		// cell volt
+		uint16_t temp = data[4]<<8 | data[5];
+		tripFlags |= 1<<3*2;
+		tripFlags &= ~(2<<3*2);
+		(temp<CELLV_MID_THRESHOLD)?(tripFlags&=~(4<<3*2)):(tripFlags|=4<<3*2);
+		cellv_micro_trip = temp*100;
+	}else if(tripID == 0x200){
+		// batt volt
+		int32_t temp = __rev(*(int32_t)(data+2));
+		tripFlags |= 1<<3*0;
+		tripFlags &= ~(2<<3*0);
+		(temp<CATTV_MID_THRESHOLD)?(tripFlags&=~(4<<3*0)):(tripFlags|=4<<3*0);
+		volt_micro_trip = temp;
+	}else if(tripID == 0x201){
+		// batt amp
+		int32_t temp = __rev(*(int32_t)(data+2));
+		tripFlags |= 1<<3*1;
+		tripFlags &= ~(2<<3*1);
+		tripFlags|=4<<3*1;
+		amp_micro_trip = temp;
+	}
+}
+
 static void status_Render(){
 	static uint8_t tripNum;
 	static uint32_t lastTripFlags;
@@ -286,19 +323,19 @@ static uint8_t renderNextTrip(uint32_t flags, uint8_t num){
 	}
 	switch (num) {
 		case 0: //battV
-			len += printFixedNum(volt_micro, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-1);
+			len += printFixedNum(volt_micro_trip, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-1);
 			buf[STAT_ADDR+len] = 'V';
 			break;
 		case 1: //battC
-			len += printFixedNum(amp_micro, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-1);
+			len += printFixedNum(amp_micro_trip, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-1);
 			buf[STAT_ADDR+len] = 'A';
 			break;
 		case 2: //cellV
-			len += printFixedNum((flags & 4<<(i*3))?cellv_h_micro:cellv_l_micro, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-1);
+			len += printFixedNum(cellv_micro_trip, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-1);
 			buf[STAT_ADDR+len] = 'V';
 			break;
 		case 3: //cellT
-			len += printFixedNum((flags & 4<<(i*3))?cellt_h_micro:cellt_l_micro, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-2);
+			len += printFixedNum(cellt_micro_trip, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-2);
 			buf[STAT_ADDR+len] = 0xb2;
 			buf[STAT_ADDR+len] = 'C';
 			break;
@@ -319,6 +356,7 @@ static void statusScrollCb(TimerHandle_t xTimer){
  ##   ##   ##  ##       ##  ##  ##       ##    ##     ##     ## #########    ##
   ## ##    ##  ##       ##  ##  ##       ##   ####    ##     ## ##     ##    ##
    ###    #### ########  ###  ###      ######  ##     ########  ##     ##    ##
+
 :: BATTERY MAIN STATS
 ┌────────────────────┐
 │BAT:•Aaaa.aA•Bbb.bbB│
@@ -345,7 +383,6 @@ A:voltage; B:current; C:low cell volt; D: avg cell volt; E: high cell volt; F:�
 #define CELLV_H_ICO_ADDR	1][2][14
 #define CELLV_H_ADDR		1][2][15
 #define CELLV_H_MAX_LEN		5
-#define CELLV_L_ADDR =
 // static uint8_t view1_updateFlags; //|||cellv_h|cellv_m|cellv_l|amp|volt
 // static int32_t volt_micro, amp_micro, cellv_l_micro, cellv_m_micro, cellv_h_micro;
 
@@ -397,6 +434,22 @@ void DD_updateVolt(int32_t volt){
 	pwr_milli = (volt_micro/1000)*(amp_micro/1000)/1000;
 	view1_updateFlags |= 0x01;
 	home_updateFlags |= 0x02;
+	if(volt_micro>VOLT_WARN_HIGH){
+		if(tripFlags & 1<<3*0 == 0 || tripFlags & 2<<3*0){
+			tripFlags |= 7<<3*0;
+			volt_micro_trip = volt_micro;
+		}
+	}else if(volt_micro<VOLT_WARN_LOW){
+		if(tripFlags & 1<<3*0 == 0 || tripFlags & 2<<3*0){
+			tripFlags |= 7<<3*0;
+			tripFlags &= ~(4<<3*0);
+			volt_micro_trip = volt_micro;
+		}
+	}else{
+		if(tripFlags & 1<<3*0 && tripFlags & 2<<3*0){
+			tripFlags &= ~(7<<3*0);
+		}
+	}
 }
 
 void DD_updateAmp(int32_t amp){
@@ -415,6 +468,22 @@ void DD_updateAmp(int32_t amp){
 	pwr_milli = (volt_micro/1000)*(amp_micro/1000)/1000;
 	view1_updateFlags |= 0x02;
 	home_updateFlags |= 0x02;
+	if(amp_micro>AMP_WARN_HIGH){
+		if(tripFlags & 1<<3*1 == 0 || tripFlags & 2<<3*1){
+			tripFlags |= 7<<3*1;
+			amp_micro_trip = amp_micro;
+		}
+	}else if(amp_micro<AMP_WARN_LOW){
+		if(tripFlags & 1<<3*1 == 0 || tripFlags & 2<<3*1){
+			tripFlags |= 7<<3*1;
+			tripFlags &= ~(4<<3*1);
+			amp_micro_trip = amp_micro;
+		}
+	}else{
+		if(tripFlags & 1<<3*1 && tripFlags & 2<<3*1){
+			tripFlags &= ~(7<<3*1);
+		}
+	}
 }
 
 void DD_updateCellV(uint8_t* data, uint8_t index){
@@ -437,6 +506,22 @@ void DD_updateCellV(uint8_t* data, uint8_t index){
 				cellv_l_micro = temp;
 				view1_updateFlags |= 0x04;
 			}
+			if(temp>CELLV_WARN_HIGH){
+				if(tripFlags & 1<<3*2 == 0 || tripFlags & 2<<3*2){
+					tripFlags |= 7<<3*2;
+					cellv_micro_trip = temp;
+				}
+			}else if(temp<CELLV_WARN_LOW){
+				if(tripFlags & 1<<3*2 == 0 || tripFlags & 2<<3*2){
+					tripFlags |= 7<<3*2;
+					tripFlags &= ~(4<<3*2);
+					cellv_micro_trip = temp;
+				}
+			}else{
+				if(tripFlags & 1<<3*2 && tripFlags & 2<<3*2){
+					tripFlags &= ~(7<<3*2);
+				}
+			}
 		}
 	}
 	cellv_m_micro /= divisor;
@@ -456,6 +541,7 @@ void DD_updateCellV(uint8_t* data, uint8_t index){
  ##   ##   ##  ##       ##  ##  ##    ##         ##        ##    ##       ##     ## ##           ##
   ## ##    ##  ##       ##  ##  ##    ##        ####       ##    ##       ##     ## ##           ##
    ###    #### ########  ###  ###     #########  ##        ##    ######## ##     ## ##         ######
+
 :: BPS TEMPERATURES
 ┌────────────────────┐
 │TEMP1:[°C]•AaaaBbb.b│
@@ -547,6 +633,22 @@ void DD_updateCellT(uint8_t* data, uint8_t index){
 				cellt_l_micro = temp[i];
 				view2_updateFlags |= 0x04;
 			}
+			if(temps[i]>CELLT_WARN_HIGH){
+				if(tripFlags & 1<<3*3 == 0 || tripFlags & 2<<3*3){
+					tripFlags |= 7<<3*3;
+					cellt_micro_trip = temps[i];
+				}
+			}else if(temps[i]<CELLT_WARN_LOW){
+				if(tripFlags & 1<<3*3 == 0 || tripFlags & 2<<3*3){
+					tripFlags |= 7<<3*3;
+					tripFlags &= ~(4<<3*3);
+					cellt_micro_trip = temps[i];
+				}
+			}else{
+				if(tripFlags & 1<<3*3 && tripFlags & 2<<3*3){
+					tripFlags &= ~(7<<3*3);
+				}
+			}
 		}
 	}
 	cellt_m_micro /= divisor;
@@ -565,6 +667,7 @@ void DD_updateCellT(uint8_t* data, uint8_t index){
  ##   ##   ##  ##       ##  ##  ##           ##  ##     ##        ##           ##
   ## ##    ##  ##       ##  ##  ##    ##     ## ####    ##        ##           ##
    ###    #### ########  ###  ###      #######   ##     ##        ##           ##
+
 :: PPT STATS
 ┌────────────────────┐
 │PPT:•D[°C]•AaaBbbCcc│
