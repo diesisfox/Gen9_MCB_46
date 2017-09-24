@@ -125,6 +125,8 @@ void Can_Processor(){
 				DD_updateAmp(crt);
 			}else if(canID >= voltOffset && canID <= voltOffset+0xf){
 				DD_updateCellV(newFrame.Data, canID-voltOffset);
+			}else if(canID >= tempOffset && canID <= tempOffset+0xf){
+				DD_updateCellT(newFrame.Data, canID-tempOffset);
 			}
 		}
 		//custom cases for heartbeat

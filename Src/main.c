@@ -905,7 +905,8 @@ void doTempTask(void const * argument)
 		*(int32_t*)(&(newFrame.Data[0])) = __REV(cpuTemp);
 		*(int32_t*)(&(newFrame.Data[4])) = __REV((int32_t)0);
 		bxCan_sendFrame(&newFrame);
-//		DD_updateDriverTemp(driverTemp);
+		DD_updateDrvTemp(driverTemp);
+		DD_updateMotTemp(motorTemp);
 	}
   /* USER CODE END doTempTask */
 }

@@ -7,10 +7,18 @@
 
 #include "driverDisplay.h"
 
+
+// ########  ########  ######  ##          ###    ########     ###    ######## ####  #######  ##    ##  ######
+// ##     ## ##       ##    ## ##         ## ##   ##     ##   ## ##      ##     ##  ##     ## ###   ## ##    ##
+// ##     ## ##       ##       ##        ##   ##  ##     ##  ##   ##     ##     ##  ##     ## ####  ## ##
+// ##     ## ######   ##       ##       ##     ## ########  ##     ##    ##     ##  ##     ## ## ## ##  ######
+// ##     ## ##       ##       ##       ######### ##   ##   #########    ##     ##  ##     ## ##  ####       ##
+// ##     ## ##       ##    ## ##       ##     ## ##    ##  ##     ##    ##     ##  ##     ## ##   ### ##    ##
+// ########  ########  ######  ######## ##     ## ##     ## ##     ##    ##    ####  #######  ##    ##  ######
 #define MAX_FPS 30
 #define FPS_DELAY 1000/MAX_FPS
 #define FILTER_SIZE 16
-#define NUM_VIEWS 2
+#define NUM_VIEWS 3
 #define WHEEL_DIAMETER_MM 559
 #define WHEEL_CIRC_MM 1755
 #define SCREEN_HOME_DELAY 3000
@@ -28,12 +36,18 @@ static TaskHandle_t ddTask;
 static void doDD(void* pvParameters);
 static void viewResetCb(TimerHandle_t xTimer);
 
-
 //HOME VIEW
 static void home_Init();
 static void home_Prep();
 static void home_Render();
 static void status_Render();
+static void statusScrollCb(TimerHandle_t xTimer);
+static uint8_t renderNextTrip(uint32_t flags, uint8_t num);
+static uint8_t home_updateFlags; //||||||pow|kph
+static uint32_t tripFlags; //[over|warn|en] => ||||||cellT|cellV|battC|battV
+static int32_t kph_micro, pwr_milli;
+static SemaphoreHandle_t bpsHBSem, adsHBSem, rdlHBSem, statusScrollSem;
+static TimerHandle_t statusScrollTmr;
 //VIEW 1
 static void view1_Init();
 static void view1_Prep();
@@ -41,17 +55,22 @@ static void view1_Render();
 static uint8_t view1_updateFlags; //|||cellv_h|cellv_m|cellv_l|amp|volt
 static int32_t volt_micro, amp_micro, cellv_l_micro, cellv_m_micro, cellv_h_micro;
 //VIEW 2
+static void view2_Init();
+static void view2_Prep();
+static void view2_Render();
+static uint8_t view2_updateFlags; //|||cellt_h|cellt_m|cellt_l|drvTemp|motTemp
+static int32_t mottemp_micro, drvtemp_micro, cellt_l_micro, cellt_m_micro, cellt_h_micro;
 
 
-void DD_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-	if(screenSem) xSemaphoreGiveFromISR(screenSem, NULL);
-}
-
+//  ######   ######## ##    ## ######## ########     ###    ##
+// ##    ##  ##       ###   ## ##       ##     ##   ## ##   ##
+// ##        ##       ####  ## ##       ##     ##  ##   ##  ##
+// ##   #### ######   ## ## ## ######   ########  ##     ## ##
+// ##    ##  ##       ##  #### ##       ##   ##   ######### ##
+// ##    ##  ##       ##   ### ##       ##    ##  ##     ## ##
+//  ######   ######## ##    ## ######## ##     ## ##     ## ########
 void DD_init(OLED_HandleTypeDef* holedIn){
 	buf1d = (uint8_t*) buf;
-//	for(uint8_t i=0; i<sizeof(buf)/sizeof(uint32_t); i+=4){
-//		*(uint32_t*)(&buf1d[i]) = 0x23202320;
-//	}
 	screenSem = xSemaphoreCreateBinary();
 	viewResetSem = xSemaphoreCreateBinary();
 	viewResetTmr = xTimerCreate("VRT", SCREEN_HOME_DELAY, pdFALSE, 0, viewResetCb);
@@ -62,7 +81,7 @@ void DD_init(OLED_HandleTypeDef* holedIn){
 	OLED_setFontTable(holed, 3);
 	home_Init();
 	view1_Init();
-	// view2_Init();
+	view2_Init();
 	xTaskCreate(doDD, "DDTask", 1024, NULL, 3, &ddTask);
 }
 
@@ -86,11 +105,11 @@ static void doDD(void* pvParameters){
 				view1_Render();
 				lastView = currentView;
 				break;
-			// case 2:
-			// 	if(lastView != 2) view2_Prep();
-			// 	view2_Render();
-			// 	lastView = currentView;
-			// 	break;
+			case 2:
+				if(lastView != 2) view2_Prep();
+				view2_Render();
+				lastView = currentView;
+				break;
 			default:
 				break;
 		}
@@ -110,8 +129,14 @@ static void ackMonitorCb(TimerHandle_t xTimer){
 	lastState = currentState;
 }
 
-
-/* HOME VIEW
+/*
+##     ##  #######  ##     ## ########    ##     ## #### ######## ##      ##
+##     ## ##     ## ###   ### ##          ##     ##  ##  ##       ##  ##  ##
+##     ## ##     ## #### #### ##          ##     ##  ##  ##       ##  ##  ##
+######### ##     ## ## ### ## ######      ##     ##  ##  ######   ##  ##  ##
+##     ## ##     ## ##     ## ##           ##   ##   ##  ##       ##  ##  ##
+##     ## ##     ## ##     ## ##            ## ##    ##  ##       ##  ##  ##
+##     ##  #######  ##     ## ########       ###    #### ########  ###  ###
 ┌────────────────────┐
 │Aaaa.aAAA•Bbbbbb.bbB│
 │--------------------│
@@ -131,11 +156,12 @@ A:speed; B:power; C:trips&status; D:BPS HB; E:ADS HB; F:radio HB;
 #define BPS_HB_ADDR		0][2][17
 #define ADS_HB_ADDR		0][2][18
 #define RDL_HB_ADDR		0][2][19
-static uint8_t home_updateFlags; //||||||pow|kph
-static uint32_t tripFlags; //[over|warn|en] => ||||||cellT|cellV|battC|battV
-static int32_t kph_micro, pwr_milli;
-static uint8_t* stat_str;
-static SemaphoreHandle_t bpsHBSem, adsHBSem, rdlHBSem, statusScrollSem;
+#define STAT_SCROLL_DELAY	1000;
+// static uint8_t home_updateFlags; //||||||pow|kph
+// static uint32_t tripFlags; //[over|warn|en] => ||||||cellT|cellV|battC|battV
+// static int32_t kph_micro, pwr_milli;
+// static SemaphoreHandle_t bpsHBSem, adsHBSem, rdlHBSem, statusScrollSem;
+// static TimerHandle_t statusScrollTmr;
 #define warnStr ("\x07")
 #define tripStr ("\x07\x07")
 #define lowStr ("\x05@")
@@ -155,6 +181,8 @@ static void home_Init(){
 	adsHBSem = xSemaphoreCreateBinary();
 	rdlHBSem = xSemaphoreCreateBinary();
 	statusScrollSem = xSemaphoreCreateBinary();
+	statusScrollTmr = xTimerCreate("SST", STAT_SCROLL_DELAY, pdTRUE, 0, statusScrollCb);
+	xTimerStart(viewResetTmr, portMAX_DELAY);
 	buf[KPH_ICO_ADDR] = 0;
 	buf[PWR_ICO_ADDR] = 1;
 	buf[BPS_HB_ADDR] = 2;
@@ -187,26 +215,111 @@ static void home_Render(){
 	status_Render();
 }
 
-static void status_Render(){
-	static uint8_t tripNum;
-	if(tripFlags){
-		for(uint8_t i=0; i<10; i++){
-			if(tripFlags & (1<<(i*3))){
-
-			}
-		}
-	}else{
-		strcpyN(okStr, &buf[STAT_ADDR], strsz(okStr));
-	}
-}
-
-void DD_updateSpeed(int32_t rpm){
+void DD_updateSpeed(int16_t rpm){
 	kph_micro = rpm * WHEEL_DIAMETER_MM * 3141593 * 60;
 	home_updateFlags |= 0x01;
 }
 
+static void status_Render(){
+	static uint8_t tripNum;
+	static uint32_t lastTripFlags;
+	uint32_t tempTripFlags = tripFlags;
+	if(tempTripFlags){
+		if((lastTripFlags != tempTripFlags) && !(tempTripFlags & tripNum<<(i*3))){
+			// trips updated and current trip cancelled
+			tripNum = renderNextTrip(tempTripFlags, tripNum);
+			xTimerReset(statusScrollTmr, portMAX_DELAY);
+		}else if(lastTripFlags == tempTripFlags){
+			if(xSemaphoreTake(statusScrollSem, 0)){
+				// trip swapping timeout reached
+				tripNum = renderNextTrip(tempTripFlags, tripNum);
+			}
+		}
+	}else{
+		strcpyN(okStr, &buf[STAT_ADDR], strsz(okStr));
+		tripNum = 0;
+		xTimerStop(statusScrollTmr, portMAX_DELAY);
+	}
+	lastTripFlags = tempTripFlags;
+}
 
-/* VIEW 1: BATTERY MAIN STATS
+static uint8_t renderNextTrip(uint32_t flags, uint8_t num){
+	uint8_t len = 0;
+	for(uint8_t i=(num+1)%10; i!=num; i=(i+1)%10){
+		if(flags & 1<<(i*3)){
+			num == i;
+			break;
+		}
+	}
+	if(flags & 2<<(i*3)){ //warn
+		strcpyN(warnStr, &buf[STAT_ADDR+len], strsz(warnStr));
+		len+=strsz(warnStr);
+	}else{ //trip
+		strcpyN(tripStr, &buf[STAT_ADDR+len], strsz(tripStr));
+		len+=strsz(tripStr);
+	}
+	switch (num) {
+		case 0: //battV
+			strcpyN(bvStr, &buf[STAT_ADDR+len], strsz(bvStr));
+			len+=strsz(bvStr);
+			break;
+		case 1: //battC
+			strcpyN(bcStr, &buf[STAT_ADDR+len], strsz(bcStr));
+			len+=strsz(bcStr);
+			break;
+		case 2: //cellV
+			strcpyN(cvStr, &buf[STAT_ADDR+len], strsz(cvStr));
+			len+=strsz(cvStr);
+			break;
+		case 3: //cellT
+			strcpyN(ctStr, &buf[STAT_ADDR+len], strsz(ctStr));
+			len+=strsz(ctStr);
+			break;
+		default: break;
+	}
+	if(flags & 4<<(i*3)){ //over
+		strcpyN(highStr, &buf[STAT_ADDR+len], strsz(highStr));
+		len+=strsz(highStr);
+	}else{ //under
+		strcpyN(lowStr, &buf[STAT_ADDR+len], strsz(lowStr));
+		len+=strsz(lowStr);
+	}
+	switch (num) {
+		case 0: //battV
+			len += printFixedNum(volt_micro, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-1);
+			buf[STAT_ADDR+len] = 'V';
+			break;
+		case 1: //battC
+			len += printFixedNum(amp_micro, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-1);
+			buf[STAT_ADDR+len] = 'A';
+			break;
+		case 2: //cellV
+			len += printFixedNum((flags & 4<<(i*3))?cellv_h_micro:cellv_l_micro, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-1);
+			buf[STAT_ADDR+len] = 'V';
+			break;
+		case 3: //cellT
+			len += printFixedNum((flags & 4<<(i*3))?cellt_h_micro:cellt_l_micro, -6, &buf[STAT_ADDR+len], STAT_MAX_LEN-len-2);
+			buf[STAT_ADDR+len] = 0xb2;
+			buf[STAT_ADDR+len] = 'C';
+			break;
+		default: break;
+	}
+	return num;
+}
+
+static void statusScrollCb(TimerHandle_t xTimer){
+	xSemaphoreGive(statusScrollSem);
+}
+
+/*
+##     ## #### ######## ##      ##       ##    ##     ########     ###    ########
+##     ##  ##  ##       ##  ##  ##     ####   ####    ##     ##   ## ##      ##
+##     ##  ##  ##       ##  ##  ##       ##    ##     ##     ##  ##   ##     ##
+##     ##  ##  ######   ##  ##  ##       ##           ########  ##     ##    ##
+ ##   ##   ##  ##       ##  ##  ##       ##    ##     ##     ## #########    ##
+  ## ##    ##  ##       ##  ##  ##       ##   ####    ##     ## ##     ##    ##
+   ###    #### ########  ###  ###      ######  ##     ########  ##     ##    ##
+:: BATTERY MAIN STATS
 ┌────────────────────┐
 │BAT:•Aaaa.aA•Bbb.bbB│
 │--------------------│
@@ -232,6 +345,7 @@ A:voltage; B:current; C:low cell volt; D: avg cell volt; E: high cell volt; F:�
 #define CELLV_H_ICO_ADDR	1][2][14
 #define CELLV_H_ADDR		1][2][15
 #define CELLV_H_MAX_LEN		5
+#define CELLV_L_ADDR =
 // static uint8_t view1_updateFlags; //|||cellv_h|cellv_m|cellv_l|amp|volt
 // static int32_t volt_micro, amp_micro, cellv_l_micro, cellv_m_micro, cellv_h_micro;
 
@@ -334,7 +448,15 @@ void DD_updateCellV(uint8_t* data, uint8_t index){
 }
 
 
-/* VIEW 2: BPS TEMPERATURES
+/*
+##     ## #### ######## ##      ##     #######   ##     ######## ######## ##     ## ########     ##
+##     ##  ##  ##       ##  ##  ##    ##     ## ####       ##    ##       ###   ### ##     ##  ####
+##     ##  ##  ##       ##  ##  ##           ##  ##        ##    ##       #### #### ##     ##    ##
+##     ##  ##  ######   ##  ##  ##     #######             ##    ######   ## ### ## ########     ##
+ ##   ##   ##  ##       ##  ##  ##    ##         ##        ##    ##       ##     ## ##           ##
+  ## ##    ##  ##       ##  ##  ##    ##        ####       ##    ##       ##     ## ##           ##
+   ###    #### ########  ###  ###     #########  ##        ##    ######## ##     ## ##         ######
+:: BPS TEMPERATURES
 ┌────────────────────┐
 │TEMP1:[°C]•AaaaBbb.b│
 │--------------------│
@@ -360,10 +482,90 @@ A:mot temp; B:driver temp; C:low cel temp; D:avg cel temp; E:high cel temp; F:�
 #define CELLT_H_ICO_ADDR	1][2][14
 #define CELLT_H_ADDR		1][2][15
 #define CELLT_H_MAX_LEN		5
-static int32_t mottemp_milli, drvtemp_milli, cellt_l_milli, cellt_m_milli, cellt_h_milli;
+// static uint8_t view2_updateFlags; //|||cellt_h|cellt_m|cellt_l|drvTemp|motTemp
+// static int32_t mottemp_micro, drvtemp_micro, cellt_l_micro, cellt_m_micro, cellt_h_micro;
 
+static void view2_Init(){
+	view2_updateFlags = mottemp_micro = drvtemp_micro = cellt_l_micro = cellt_m_micro = cellt_h_micro = 0;
+	for(uint32_t i=160; i<240; i++){
+		buf1d[i] = ' ';
+	}
+	buf[2][0][0] = 'T'; buf[2][0][1] = 'E'; buf[2][0][2] = 'M'; buf[2][0][3] = 'P'; buf[2][0][4] = '1'; buf[2][0][5] = ':';
+	buf[2][0][6] = '['; buf[2][0][7] = 0xb2; buf[2][0][8] = 'C'; buf[2][0][9] = ']';
+	buf[MOTTEMP_ICO_ADDR] = 0;
+	buf[DRVTEMP_ICO_ADDR] = 1;
+	buf[CELLT_ICO_ADDR0] = 2;
+	buf[CELLT_ICO_ADDR1] = 3;
+	buf[CELLT_L_ICO_ADDR] = 4; buf[CELLT_M_ICO_ADDR] = 5; buf[CELLT_H_ICO_ADDR] = 6;
+}
 
-/* VIEW 3: PPT STATS
+static void view2_Prep(){
+	OLED_setCustomChar(holed, 0, cc_motor);
+	OLED_setCustomChar(holed, 1, cc_user);
+	OLED_setCustomChar(holed, 2, cc_battery80);
+	OLED_setCustomChar(holed, 3, cc_thermometer);
+	OLED_setCustomChar(holed, 4, cc_arrowBottom);
+	OLED_setCustomChar(holed, 5, cc_boxMiddle);
+	OLED_setCustomChar(holed, 6, cc_arrowTop);
+}
+
+static void view2_Render(){
+	uint8_t tempUF = view1_updateFlags;
+	view1_updateFlags = 0;
+	if(tempUF & 0x01) printFixedNum(mottemp_micro, -6, &buf[MOTTEMP_ADDR], MOTTEMP_MAX_LEN);
+	if(tempUF & 0x02) printFixedNum(drvtemp_micro, -6, &buf[DRVTEMP_ADDR], DRVTEMP_MEX_LEN);
+	if(tempUF & 0x04) printFixedNum(cellt_l_micro, -6, &buf[CELLT_L_ADDR], CELLT_L_MAX_LEN);
+	if(tempUF & 0x08) printFixedNum(cellt_m_micro, -6, &buf[CELLT_M_ADDR], CELLT_M_MAX_LEN);
+	if(tempUF & 0x10) printFixedNum(cellt_h_micro, -6, &buf[CELLT_H_ADDR], CELLT_H_MAX_LEN);
+}
+
+void DD_updateMotTemp(int32_t tmp){
+	mottemp_micro = tmp;
+	view1_updateFlags |= 0x01;
+}
+
+void DD_updateDrvTemp(int32_t tmp){
+	drvtemp_micro = tmp;
+	view1_updateFlags |= 0x02;
+}
+
+void DD_updateCellT(uint8_t* data, uint8_t index){
+	static int32_t temps[32];
+	uint8_t divisor = 0;
+	voltages[index*2] = __REV(*(int32_t)(data));
+	voltages[index*2+1] = __REV(*(int32_t)(data+4));
+	cellt_m_micro = cellt_h_micro = 0;
+	cellt_l_micro = 99999999;
+	for(uint8_t i=0; i<32; i++){
+		if(temps[i]){
+			cellt_m_micro+=temps[i];
+			divisor++;
+			if(temp > cellt_h_micro){
+				cellt_h_micro = temp[i];
+				view2_updateFlags |= 0x10;
+			}if(temp < cellt_l_micro){
+				cellt_l_micro = temp[i];
+				view2_updateFlags |= 0x04;
+			}
+		}
+	}
+	cellt_m_micro /= divisor;
+	view2_updateFlags |= 0x08;
+	if(cellt_l_micro > cellt_h_micro){
+		cellt_l_micro = cellt_h_micro;
+		view2_updateFlags |= 0x04;
+	}
+}
+
+/*
+##     ## #### ######## ##      ##     #######   ##     ########  ########  ########
+##     ##  ##  ##       ##  ##  ##    ##     ## ####    ##     ## ##     ##    ##
+##     ##  ##  ##       ##  ##  ##           ##  ##     ##     ## ##     ##    ##
+##     ##  ##  ######   ##  ##  ##     #######          ########  ########     ##
+ ##   ##   ##  ##       ##  ##  ##           ##  ##     ##        ##           ##
+  ## ##    ##  ##       ##  ##  ##    ##     ## ####    ##        ##           ##
+   ###    #### ########  ###  ###      #######   ##     ##        ##           ##
+:: PPT STATS
 ┌────────────────────┐
 │PPT:•D[°C]•AaaBbbCcc│
 │--------------------│

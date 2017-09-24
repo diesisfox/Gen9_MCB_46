@@ -39,7 +39,6 @@ void motCan_Processor(){
 	static Can_frame_t inFrame;
 	static Can_frame_t newFrame;
 
-
 	MotCanFrm0_t * data0;
 	MotCanFrm1_t * data1;
 	MotCanFrm2_t * data2;
@@ -49,11 +48,9 @@ void motCan_Processor(){
 
 	xQueueReceive(motCanRxQHandle, &inFrame, portMAX_DELAY);
 
-    xSemaphoreGive(motReqSemHandle);
+	xSemaphoreGive(motReqSemHandle);
 
-//      OLED_writeFrame(&holed1, "request sent");
-
-      newFrame.isExt = 0;
+	newFrame.isExt = 0;
 
 	uint8_t motNum = ((inFrame.id & 0xf0) >> 1)-1; //2,4,6,8 to 0,1,2,3
 	switch (inFrame.id) {
@@ -68,9 +65,8 @@ void motCan_Processor(){
 			for(uint8_t i=0; i<8; i++){
 				newFrame.Data[i] = inFrame.Data[i];
 			}
-			//*(uint64_t*)newFrame.Data = *(uint64_t*)inFrame.Data;
 			bxCan_sendFrame(&newFrame);
-//			DD_updateRPM(data0->motorRPM * 3142 * 56 * 60 / 100); //m/h
+			DD_updateRPM(data0->motorRPM);
 
 			break;
 		case Log_Res_Frm1_RL1:
@@ -97,23 +93,16 @@ void motCan_Processor(){
 			}
 			bxCan_sendFrame(&newFrame);
 
-//            OLED_writeFrame(&holed1, "frame 1 get");
-
 			break;
 		case Log_Res_Frm2_RL1:
 		case Log_Res_Frm2_RR1:
 		case Log_Res_Frm2_FL1:
 		case Log_Res_Frm2_FR1:
-
-//			if(*((uint64_t*)(inFrame.Data))){
-				data2 = (MotCanFrm2_t*)inFrame.Data;
-				denomuralize(inFrame.Data, newFrame.Data);
-				newFrame.id = mcError;
-				newFrame.dlc = mcError_DLC;
-				bxCan_sendFrame(&newFrame);
-
-//                OLED_writeFrame(&holed1, "frame 2 get");
-//			}
+			data2 = (MotCanFrm2_t*)inFrame.Data;
+			denomuralize(inFrame.Data, newFrame.Data);
+			newFrame.id = mcError;
+			newFrame.dlc = mcError_DLC;
+			bxCan_sendFrame(&newFrame);
 			break;
 		case LOG_FRAME_0_RL_ID:
 		case LOG_FRAME_0_RR_ID:

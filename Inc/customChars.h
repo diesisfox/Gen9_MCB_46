@@ -48,5 +48,7 @@ extern uint8_t cc_arrowBottom[8];
 extern uint8_t cc_boxMiddle[8];
 extern uint8_t cc_xBar[8];
 extern uint8_t cc_checkMark[8];
+extern uint8_t cc_user[8];
+extern uint8_t cc_motor[8];
 
 #endif /* CUSTOMCHARS_H_ */
