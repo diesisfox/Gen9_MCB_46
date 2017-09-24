@@ -27,7 +27,7 @@
 
 static uint8_t buf[NUM_VIEWS][4][20];
 static uint8_t* buf1d;
-static SemaphoreHandle_t updateSem, radioSem, screenSem, viewResetSem;
+static SemaphoreHandle_t radioSem, screenSem, viewResetSem;
 static TimerHandle_t viewResetTmr, ackMonitorTmr;
 static uint8_t currentView = 0;
 static uint8_t lastView = 0xff;
@@ -36,6 +36,7 @@ static TaskHandle_t ddTask;
 
 static void doDD(void* pvParameters);
 static void viewResetCb(TimerHandle_t xTimer);
+static void ackMonitorCb(TimerHandle_t xTimer);
 
 //HOME VIEW
 static void home_Init();
@@ -77,8 +78,8 @@ void DD_init(OLED_HandleTypeDef* holedIn){
 	screenSem = xSemaphoreCreateBinary();
 	viewResetSem = xSemaphoreCreateBinary();
 	viewResetTmr = xTimerCreate("VRT", SCREEN_HOME_DELAY, pdFALSE, 0, viewResetCb);
-	viewResetTmr = xTimerCreate("AMT", ACK_REFRESH_PERIOD, pdTRUE, 0, ackMonitorCb);
-	xTimerStart(viewResetTmr, portMAX_DELAY);
+	ackMonitorTmr = xTimerCreate("AMT", ACK_REFRESH_PERIOD, pdTRUE, 0, ackMonitorCb);
+	xTimerStart(ackMonitorTmr, portMAX_DELAY);
 	holed = holedIn;
 	OLED_displayOnOff(holed, 1, 0, 0);
 	OLED_setFontTable(holed, 3);
@@ -127,7 +128,7 @@ static void viewResetCb(TimerHandle_t xTimer){
 
 static void ackMonitorCb(TimerHandle_t xTimer){
 	static uint8_t lastState;
-	uint8_t currentState = readSwitch(ACK_BTN);
+	uint8_t currentState = readPin(ACK_BTN);
 	if(lastState==1 && ~currentState==0) xSemaphoreGive(screenSem);
 	lastState = currentState;
 }
@@ -160,7 +161,7 @@ A:speed; B:power; C:trips&status; D:BPS HB; E:ADS HB; F:radio HB;
 #define BPS_HB_ADDR		0][2][17
 #define ADS_HB_ADDR		0][2][18
 #define RDL_HB_ADDR		0][2][19
-#define STAT_SCROLL_DELAY	1000;
+#define STAT_SCROLL_DELAY	1000
 // static uint8_t home_updateFlags; //||||||pow|kph
 // static uint32_t tripFlags; //[over|warn|en] => ||||||cellT|cellV|battC|battV
 // static int32_t kph_micro, pwr_milli;
@@ -228,12 +229,12 @@ void DD_updateTrip(uint8_t* data){
 	uint16_t tripID = data[0]<<8 | data[1];
 	if(tripID>=0x500 && tripID<=0x51f){
 		// cell temp
-		int32_t temp = __rev(*(int32_t)(data+2));
+		int32_t temp = __REV(*(int32_t*)(data+2));
 		tripFlags |= 1<<3*3;
 		tripFlags &= ~(2<<3*3);
 		(temp<CELLT_MID_THRESHOLD)?(tripFlags&=~(4<<3*3)):(tripFlags|=4<<3*3);
 		cellt_micro_trip = temp;
-	}else if(tripID>=0x000 && tripID<=0x008){
+	}else if(tripID<=0x008){
 		// cell volt
 		uint16_t temp = data[4]<<8 | data[5];
 		tripFlags |= 1<<3*2;
@@ -242,14 +243,14 @@ void DD_updateTrip(uint8_t* data){
 		cellv_micro_trip = temp*100;
 	}else if(tripID == 0x200){
 		// batt volt
-		int32_t temp = __rev(*(int32_t)(data+2));
+		int32_t temp = __REV(*(int32_t*)(data+2));
 		tripFlags |= 1<<3*0;
 		tripFlags &= ~(2<<3*0);
 		(temp<CATTV_MID_THRESHOLD)?(tripFlags&=~(4<<3*0)):(tripFlags|=4<<3*0);
 		volt_micro_trip = temp;
 	}else if(tripID == 0x201){
 		// batt amp
-		int32_t temp = __rev(*(int32_t)(data+2));
+		int32_t temp = __REV(*(int32_t*)(data+2));
 		tripFlags |= 1<<3*1;
 		tripFlags &= ~(2<<3*1);
 		tripFlags|=4<<3*1;
@@ -262,7 +263,7 @@ static void status_Render(){
 	static uint32_t lastTripFlags;
 	uint32_t tempTripFlags = tripFlags;
 	if(tempTripFlags){
-		if((lastTripFlags != tempTripFlags) && !(tempTripFlags & tripNum<<(i*3))){
+		if((lastTripFlags != tempTripFlags) && !(tempTripFlags & tripNum<<(tripNum*3))){
 			// trips updated and current trip cancelled
 			tripNum = renderNextTrip(tempTripFlags, tripNum);
 			xTimerReset(statusScrollTmr, portMAX_DELAY);
@@ -284,11 +285,11 @@ static uint8_t renderNextTrip(uint32_t flags, uint8_t num){
 	uint8_t len = 0;
 	for(uint8_t i=(num+1)%10; i!=num; i=(i+1)%10){
 		if(flags & 1<<(i*3)){
-			num == i;
+			num = i;
 			break;
 		}
 	}
-	if(flags & 2<<(i*3)){ //warn
+	if(flags & 2<<(num*3)){ //warn
 		strcpyN(warnStr, &buf[STAT_ADDR+len], strsz(warnStr));
 		len+=strsz(warnStr);
 	}else{ //trip
@@ -314,7 +315,7 @@ static uint8_t renderNextTrip(uint32_t flags, uint8_t num){
 			break;
 		default: break;
 	}
-	if(flags & 4<<(i*3)){ //over
+	if(flags & 4<<(num*3)){ //over
 		strcpyN(highStr, &buf[STAT_ADDR+len], strsz(highStr));
 		len+=strsz(highStr);
 	}else{ //under
@@ -468,12 +469,12 @@ void DD_updateAmp(int32_t amp){
 	pwr_milli = (volt_micro/1000)*(amp_micro/1000)/1000;
 	view1_updateFlags |= 0x02;
 	home_updateFlags |= 0x02;
-	if(amp_micro>AMP_WARN_HIGH){
+	if(amp_micro>CUR_WARN_HIGH){
 		if(tripFlags & 1<<3*1 == 0 || tripFlags & 2<<3*1){
 			tripFlags |= 7<<3*1;
 			amp_micro_trip = amp_micro;
 		}
-	}else if(amp_micro<AMP_WARN_LOW){
+	}else if(amp_micro<CUR_WARN_LOW){
 		if(tripFlags & 1<<3*1 == 0 || tripFlags & 2<<3*1){
 			tripFlags |= 7<<3*1;
 			tripFlags &= ~(4<<3*1);
@@ -618,19 +619,19 @@ void DD_updateDrvTemp(int32_t tmp){
 void DD_updateCellT(uint8_t* data, uint8_t index){
 	static int32_t temps[32];
 	uint8_t divisor = 0;
-	voltages[index*2] = __REV(*(int32_t)(data));
-	voltages[index*2+1] = __REV(*(int32_t)(data+4));
+	temps[index*2] = __REV(*(int32_t*)(data));
+	temps[index*2+1] = __REV(*(int32_t*)(data+4));
 	cellt_m_micro = cellt_h_micro = 0;
 	cellt_l_micro = 99999999;
 	for(uint8_t i=0; i<32; i++){
 		if(temps[i]){
 			cellt_m_micro+=temps[i];
 			divisor++;
-			if(temp > cellt_h_micro){
-				cellt_h_micro = temp[i];
+			if(temps[i] > cellt_h_micro){
+				cellt_h_micro = temps[i];
 				view2_updateFlags |= 0x10;
-			}if(temp < cellt_l_micro){
-				cellt_l_micro = temp[i];
+			}if(temps[i] < cellt_l_micro){
+				cellt_l_micro = temps[i];
 				view2_updateFlags |= 0x04;
 			}
 			if(temps[i]>CELLT_WARN_HIGH){
