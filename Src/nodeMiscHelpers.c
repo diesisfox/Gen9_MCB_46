@@ -237,8 +237,8 @@ void regToBytes(uint32_t * reg, uint8_t * bytes){
 
 uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen){ //returns length written
 	uint8_t digitBuf[10] = {0};
-	uint8_t len = 0;
-	uint8_t nOrder = 0;
+	int8_t len = 0;
+	int8_t nOrder = 0;
 	// clear the target
 	for(uint8_t i=0; i<maxLen; i++){
 		str[i] = ' ';
@@ -256,9 +256,9 @@ uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen)
 		nOrder++;
 	}
 	if(magnitude<0){ // making n smaller
-		uint8_t decimalStart = -magnitude-1;
+		int8_t decimalStart = -magnitude-1;
 		// whole part
-		for(uint8_t i=nOrder-1; i>decimalStart; i--){
+		for(int8_t i=nOrder-1; i>decimalStart; i--){
 			if(len<maxLen){
 				str[len] = digitBuf[i]+'0';
 				len++;
@@ -277,7 +277,7 @@ uint8_t printFixedNum(int32_t n, int8_t magnitude, uint8_t* str, uint8_t maxLen)
 				str[len] = digitBuf[i]+'0';
 				len++;
 			}else{
-				if(digitBuf[i]>=5&&str[len-1]<'9') str[len-1]++;
+//				if(digitBuf[i]>=5&&str[len-1]<'9') str[len-1]++; //TODO
 				break;
 			}
 		}

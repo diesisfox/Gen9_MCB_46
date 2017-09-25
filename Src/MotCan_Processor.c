@@ -109,7 +109,7 @@ void motCan_Processor(){
 		case LOG_FRAME_0_FL_ID:
 		case LOG_FRAME_0_FR_ID:
 			logData0 = (MotLogFrm0_t*)inFrame.Data;
-//			DD_updateRPM(logData0->motorRPM);
+			DD_updateSpeed(logData0->motorRPM);
 
 			break;
 		case LOG_FRAME_1_RL_ID:

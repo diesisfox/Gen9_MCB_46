@@ -60,7 +60,7 @@ typedef enum{
 } SwitchIndex_t;
 
 #define readSwitch(x) ((HAL_GPIO_ReadPin( x ## _GPIO_Port, x ## _Pin )?0:1)<< x )
-#define readPin(x) (HAL_GPIO_ReadPin( x ## _GPIO_Port, x ## _Pin )?0:1)
+#define readPin(x) (HAL_GPIO_ReadPin( x ## _GPIO_Port, x ## _Pin )?1:0)
 uint32_t readSwitches();
 void setupNodeTable();
 void reportSwitches(uint32_t x);

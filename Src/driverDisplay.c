@@ -21,6 +21,7 @@
 #define FILTER_SIZE 16
 #define NUM_VIEWS 3
 #define WHEEL_DIAMETER_MM 559
+#define WHEEL_DIAMETER_MM_X_PI_X_60 105369
 #define WHEEL_CIRC_MM 1755
 #define SCREEN_HOME_DELAY 3000
 #define ACK_REFRESH_PERIOD 50
@@ -129,7 +130,7 @@ static void viewResetCb(TimerHandle_t xTimer){
 static void ackMonitorCb(TimerHandle_t xTimer){
 	static uint8_t lastState;
 	uint8_t currentState = readPin(ACK_BTN);
-	if(lastState==1 && ~currentState==0) xSemaphoreGive(screenSem);
+	if(lastState && !currentState) xSemaphoreGive(screenSem);
 	lastState = currentState;
 }
 
@@ -221,7 +222,7 @@ static void home_Render(){
 }
 
 void DD_updateSpeed(int16_t rpm){
-	kph_micro = rpm * WHEEL_DIAMETER_MM * 3141593 * 60;
+	kph_micro = rpm * WHEEL_DIAMETER_MM_X_PI_X_60;
 	home_updateFlags |= 0x01;
 }
 
@@ -558,16 +559,16 @@ A:mot temp; B:driver temp; C:low cel temp; D:avg cel temp; E:high cel temp; F:ðŸ
 #define DRVTEMP_ICO_ADDR	2][0][15
 #define DRVTEMP_ADDR		2][0][16
 #define DRVTEMP_MEX_LEN		4
-#define CELLT_ICO_ADDR0		1][2][0
-#define CELLT_ICO_ADDR1		1][2][1
-#define CELLT_L_ICO_ADDR	1][2][2
-#define CELLT_L_ADDR		1][2][3
+#define CELLT_ICO_ADDR0		2][2][0
+#define CELLT_ICO_ADDR1		2][2][1
+#define CELLT_L_ICO_ADDR	2][2][2
+#define CELLT_L_ADDR		2][2][3
 #define CELLT_L_MAX_LEN		5
-#define CELLT_M_ICO_ADDR	1][2][8
-#define CELLT_M_ADDR		1][2][9
+#define CELLT_M_ICO_ADDR	2][2][8
+#define CELLT_M_ADDR		2][2][9
 #define CELLT_M_MAX_LEN		5
-#define CELLT_H_ICO_ADDR	1][2][14
-#define CELLT_H_ADDR		1][2][15
+#define CELLT_H_ICO_ADDR	2][2][14
+#define CELLT_H_ADDR		2][2][15
 #define CELLT_H_MAX_LEN		5
 // static uint8_t view2_updateFlags; //|||cellt_h|cellt_m|cellt_l|drvTemp|motTemp
 // static int32_t mottemp_micro, drvtemp_micro, cellt_l_micro, cellt_m_micro, cellt_h_micro;
@@ -597,7 +598,7 @@ static void view2_Prep(){
 }
 
 static void view2_Render(){
-	uint8_t tempUF = view1_updateFlags;
+	uint8_t tempUF = view2_updateFlags;
 	view1_updateFlags = 0;
 	if(tempUF & 0x01) printFixedNum(mottemp_micro, -6, &buf[MOTTEMP_ADDR], MOTTEMP_MAX_LEN);
 	if(tempUF & 0x02) printFixedNum(drvtemp_micro, -6, &buf[DRVTEMP_ADDR], DRVTEMP_MEX_LEN);
@@ -608,12 +609,12 @@ static void view2_Render(){
 
 void DD_updateMotTemp(int32_t tmp){
 	mottemp_micro = tmp;
-	view1_updateFlags |= 0x01;
+	view2_updateFlags |= 0x01;
 }
 
 void DD_updateDrvTemp(int32_t tmp){
 	drvtemp_micro = tmp;
-	view1_updateFlags |= 0x02;
+	view2_updateFlags |= 0x02;
 }
 
 void DD_updateCellT(uint8_t* data, uint8_t index){
