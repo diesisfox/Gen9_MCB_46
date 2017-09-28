@@ -112,6 +112,7 @@ QueueHandle_t * nodeEntryMtxHandle = (QueueHandle_t[MAX_NODE_NUM]){0};
 osTimerId * nodeTmrHandle = (osTimerId[MAX_NODE_NUM]){0};			// Timer for each node's timeout timer
 nodeEntry nodeTable[MAX_NODE_NUM];
 controlVars userInput;
+uint8_t regenOn = 0;
 
 uint32_t firmwareString = 0x00000001;
 uint8_t selfNodeID = cc_nodeID;
@@ -911,11 +912,9 @@ void doSwitches(void const * argument)
 				}
 			}
 
-			if(currentState & 1<<BRK_SWITCH){       //break light
-				HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_SET);
-			}else{
-				HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,GPIO_PIN_RESET);
-			}
+			uint8_t brkSwitch = (currentState & 1<<BRK_SWITCH)?1:0;
+			HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,(brkSwitch|regenOn)?GPIO_PIN_SET:GPIO_PIN_RESET);
+
 			lastState = currentState;
 		}
 		osDelay(Switch_Interval);

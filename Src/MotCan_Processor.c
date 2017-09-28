@@ -25,6 +25,7 @@
 extern osMessageQId motCanRxQHandle;
 extern OLED_HandleTypeDef holed1;
 extern osSemaphoreId motReqSemHandle;
+extern uint8_t regenOn;
 
 uint32_t reqFrameIds[4] = {0x08f89540,0x08f91540,0x08f99540,0x08fa1540};
 
@@ -110,7 +111,7 @@ void motCan_Processor(){
 		case LOG_FRAME_0_FR_ID:
 			logData0 = (MotLogFrm0_t*)inFrame.Data;
 			DD_updateSpeed(logData0->motorRPM);
-
+			regenOn = logData0->outputDutyType;
 			break;
 		case LOG_FRAME_1_RL_ID:
 		case LOG_FRAME_1_RR_ID:
