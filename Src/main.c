@@ -867,6 +867,7 @@ void doMotCan(void const * argument)
 void doSwitches(void const * argument)
 {
   /* USER CODE BEGIN doSwitches */
+	uint8_t brkSwitch = 0;
 	uint32_t lastState = 0;
 	for(;;){
 		uint32_t currentState = readSwitches();
@@ -912,11 +913,10 @@ void doSwitches(void const * argument)
 				}
 			}
 
-			uint8_t brkSwitch = (currentState & 1<<BRK_SWITCH)?1:0;
-			HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,(brkSwitch|regenOn)?GPIO_PIN_SET:GPIO_PIN_RESET);
-
+			brkSwitch = (currentState & 1<<BRK_SWITCH)?1:0;
 			lastState = currentState;
 		}
+		HAL_GPIO_WritePin(BRK_LIGHT_GPIO_Port,BRK_LIGHT_Pin,(brkSwitch|regenOn)?GPIO_PIN_SET:GPIO_PIN_RESET);
 		osDelay(Switch_Interval);
 	}
   /* USER CODE END doSwitches */
