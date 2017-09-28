@@ -14,6 +14,7 @@
 #include "serial.h"
 #include "nodeMiscHelpers.h"
 #include "driverDisplay.h"
+#include "nodeConf.h"
 
 void Can_Processor(void);
 

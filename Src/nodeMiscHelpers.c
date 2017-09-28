@@ -7,13 +7,12 @@
 #include "nodeMiscHelpers.h"
 #include "nodeConf.h"
 
-uint32_t 	selfStatusWord;
 extern osMutexId 	swMtxHandle;
 extern osMessageQId mainCanTxQHandle;
 extern osMessageQId mainCanRxQHandle;
 extern osMessageQId motCanTxQHandle;
 extern osMessageQId motCanRxQHandle;
-extern nodeEntry *  nodeTable;
+extern nodeEntry nodeTable[MAX_NODE_NUM];
 extern const uint32_t *const acceptedFirmware;
 
 /*

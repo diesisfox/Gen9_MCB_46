@@ -15,7 +15,7 @@
 //#include "mcpCAN.h"
 #include "../../CAN_ID.h"
 
-extern nodeEntry * nodeTable;
+extern nodeEntry nodeTable[MAX_NODE_NUM];
 extern controlVars userInput;
 extern osMutexId controlVarsMtxHandle;
 extern osMutexId * nodeEntryMtxHandle;

@@ -47,10 +47,9 @@
 #define MAX_NODE_NUM	 		16		// Maximum number of nodes supported on this system
 #define MAX_NODERESET_ATTEMPTS	1		// Maximum number of retries CC will attempt before flagging node as HARD ERRORs
 
-
-static const uint32_t firmwareString = 0x00000001;			// Firmware Version string
-static const uint8_t selfNodeID = dcb_nodeID;					// The nodeID of this node
-extern uint32_t selfStatusWord;	// Initialize
+extern uint32_t firmwareString;     // Firmware Version string
+extern uint8_t selfNodeID;			// The nodeID of this node
+extern uint32_t selfStatusWord;		// Initialize
 #define NODE_CONFIGURED
 
 typedef struct {

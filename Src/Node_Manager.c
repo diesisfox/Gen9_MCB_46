@@ -12,7 +12,7 @@
 #include "can.h"
 
 extern osMessageQId BadNodesQHandle;
-extern nodeEntry * nodeTable;
+extern nodeEntry nodeTable[MAX_NODE_NUM];
 
 void Node_Manager(){
 	uint8_t badNodeID = 0;

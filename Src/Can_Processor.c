@@ -8,9 +8,8 @@
 
 extern osMessageQId mainCanRxQHandle;
 extern osMutexId * nodeEntryMtxHandle;
-extern nodeEntry * nodeTable;
+extern nodeEntry nodeTable[MAX_NODE_NUM];
 extern osTimerId * nodeTmrHandle;
-extern const uint8_t selfNodeID;
 extern osMessageQId BadNodesQHandle;
 extern const uint32_t * const acceptedFirmware;
 
@@ -35,10 +34,10 @@ void Can_Processor(){
 		} else if (nodeTable[RxNodeID].nodeFirmwareVersion == SW_Sentinel){
 			// Illegal node (not defined in the node Table)
 			// Shutdown the node
-			newFrame.id = RxNodeID + p2pOffset;
-			newFrame.Data[0] = NODE_SHUTDOWN;
-			newFrame.dlc = CMD_DLC;
-			bxCan_sendFrame(&newFrame);
+//			newFrame.id = RxNodeID + p2pOffset;
+//			newFrame.Data[0] = NODE_SHUTDOWN;
+//			newFrame.dlc = CMD_DLC;
+//			bxCan_sendFrame(&newFrame);
 		} else if ((canID & 0xFF0) == swOffset){
 			// Status word received
 			xSemaphoreTake(nodeEntryMtxHandle[RxNodeID], portMAX_DELAY);
@@ -100,7 +99,7 @@ void Can_Processor(){
 				newFrame.Data[0] = CC_ACK;
 				// Update nodeTable entry
 				xSemaphoreTake(nodeEntryMtxHandle[RxNodeID], portMAX_DELAY);
-					nodeTable[RxNodeID].nodeConnectionState = CONNECTING;
+					nodeTable[RxNodeID].nodeConnectionState = 1;
 				xSemaphoreGive(nodeEntryMtxHandle[RxNodeID]);
 					//XXX the line below uniquely crashes
 				xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);
