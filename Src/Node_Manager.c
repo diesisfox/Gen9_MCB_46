@@ -10,18 +10,20 @@
 #include "../../CAN_ID.h"
 #include "nodeConf.h"
 #include "can.h"
+#include "main.h"
 
 extern osMessageQId BadNodesQHandle;
 extern nodeEntry nodeTable[MAX_NODE_NUM];
 
 void Node_Manager(){
+	#ifndef DISABLE_RESET
 	uint8_t badNodeID = 0;
 	xQueueReceive(BadNodesQHandle, &badNodeID, portMAX_DELAY);	// Wait for queue
 	UBaseType_t currentPriority = uxTaskPriorityGet(NULL);		// Get priority of current Task
 	// TODO: Verify the below statement
 	xTaskCreate(resetNode, NULL, 512, (void*)(badNodeID), currentPriority, NULL);
 //	xTaskCreate(resetNode, NULL, 512, (void*)(&badNodeID), currentPriority, NULL);		// Create a new task to deal with each bad node
-
+	#endif
 }
 
 // Wrapper for the recursive reset node function

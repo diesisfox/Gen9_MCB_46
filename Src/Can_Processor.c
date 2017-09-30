@@ -82,10 +82,12 @@ void Can_Processor(){
 
 			} else {
 				// Node behavior is improper; send to NodeManager to reset
+				#ifndef DISABLE_RESET
 				xSemaphoreTake(nodeEntryMtxHandle[RxNodeID], portMAX_DELAY);
 					nodeTable[RxNodeID].nodeConnectionState = UNRELIABLE;
 				xSemaphoreGive(nodeEntryMtxHandle[RxNodeID]);
 				xQueueSend(BadNodesQHandle, &RxNodeID, portMAX_DELAY);
+				#endif                                         
 			}
 		} else if ((canID & 0xFF0) == fwOffset){
 			// Firmware string received

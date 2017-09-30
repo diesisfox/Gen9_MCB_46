@@ -51,6 +51,8 @@
 #include "cmsis_os.h"
 
 /* USER CODE BEGIN Includes */
+#define DISABLE_RESET
+
 #include "can.h"
 #include "can2.h"
 #include "serial.h"
@@ -64,7 +66,9 @@
 // RTOS Task functions + helpers
 #include "Can_Processor.h"
 #include "motCan_Processor.h"
-#include "Node_Manager.h"
+#ifndef DISABLE_RESET
+	#include "Node_Manager.h"
+#endif
 
 /* USER CODE END Includes */
 
@@ -145,7 +149,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 void HAL_CAN_TxCpltCallback(CAN_HandleTypeDef* hcan);
 void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan);
 void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan);
+#ifndef
 void TmrHBTimeout(void * argument);
+#endif
 void doHousekeeping(void * argument);
 /* USER CODE END PFP */
 
@@ -269,9 +275,11 @@ int main(void)
 //  	  //TODO investigate the timer crashes
 //  	  // One-shot timer since it should be refreshed by the Can Processor upon node HB reception
 //    }     //fucktarded the macro oops
-	for(uint8_t TmrID = 0; TmrID < MAX_NODE_NUM; TmrID++){
-		nodeTmrHandle[TmrID] = xTimerCreate(NULL,Node_HB_Interval,pdFALSE,(void*)TmrID,TmrHBTimeout);
-	}
+	#ifndef DISABLE_RESET
+		for(uint8_t TmrID = 0; TmrID < MAX_NODE_NUM; TmrID++){
+			nodeTmrHandle[TmrID] = xTimerCreate(NULL,Node_HB_Interval,pdFALSE,(void*)TmrID,TmrHBTimeout);
+		}
+	#endif
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the thread(s) */
@@ -752,6 +760,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+#ifndef
 void TmrHBTimeout(void * argument){
 	// TODO: Test if using point in the line below breaks this function
 	uint8_t timerID = (uint8_t)pvTimerGetTimerID((TimerHandle_t)argument);
@@ -760,6 +769,7 @@ void TmrHBTimeout(void * argument){
 		xQueueSend(BadNodesQHandle, &timerID, portMAX_DELAY);
 	}
 }
+#endif
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	switch(GPIO_Pin){
@@ -927,8 +937,12 @@ void doNodeManager(void const * argument)
 {
   /* USER CODE BEGIN doNodeManager */
 	for(;;){
+		#ifndef DISABLE_RESET
 		// Wrapper for the Node_Manager task
 		Node_Manager();
+		#else
+		osDelay(100000);
+		#endif
 	}
   /* USER CODE END doNodeManager */
 }
