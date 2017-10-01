@@ -47,9 +47,9 @@ void Can_Processor(){
 			if(nodeTable[RxNodeID].nodeConnectionState == CONNECTED){
 				// Regular heartbeat; check the node status and refresh heartbeat when applicable
 				if((nodeTable[RxNodeID].nodeStatusWord & SW_STATE_BITS) == ACTIVE){
-					xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);
+//					xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);
 				} else if ((nodeTable[RxNodeID].nodeStatusWord & SW_STATE_BITS) == SHUTDOWN){
-					xTimerStop(nodeTmrHandle[RxNodeID], portMAX_DELAY);
+//					xTimerStop(nodeTmrHandle[RxNodeID], portMAX_DELAY);
 				}
 				// Remaining state is HARD error and no intervention is needed
 			} else if (nodeTable[RxNodeID].nodeConnectionState == CONNECTING){
@@ -60,7 +60,7 @@ void Can_Processor(){
 						nodeTable[RxNodeID].nodeConnectionState = CONNECTED;
 					xSemaphoreGive(nodeEntryMtxHandle[RxNodeID]);
 					// Refresh the heartbeat timer so the node doesn't timeout while attempting addition
-					xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);
+//					xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);
 				} else {
 					// Handle the situation where the node is stuck in the CONNECTING state
 					(nodeConnectionWait[RxNodeID])++;
@@ -74,9 +74,9 @@ void Can_Processor(){
 						xSemaphoreTake(nodeEntryMtxHandle[RxNodeID], portMAX_DELAY);
 							nodeTable[RxNodeID].nodeConnectionState = DISCONNECTED;
 						xSemaphoreGive(nodeEntryMtxHandle[RxNodeID]);
-						xTimerStop(nodeTmrHandle[RxNodeID], portMAX_DELAY);
+//						xTimerStop(nodeTmrHandle[RxNodeID], portMAX_DELAY);
 					} else {
-						xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);
+//						xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);
 					}
 				}
 
@@ -104,8 +104,8 @@ void Can_Processor(){
 					nodeTable[RxNodeID].nodeConnectionState = 1;
 				xSemaphoreGive(nodeEntryMtxHandle[RxNodeID]);
 					//XXX the line below uniquely crashes
-				xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);
-				xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);	// Start the node heartbeat timer
+//				xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);
+//				xTimerReset(nodeTmrHandle[RxNodeID], portMAX_DELAY);	// Start the node heartbeat timer
 			}
 			else {
 				// Firmware string mismatch - Wrong firmware loaded into system

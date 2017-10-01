@@ -15,6 +15,7 @@
 #include "nodeMiscHelpers.h"
 #include "driverDisplay.h"
 #include "nodeConf.h"
+#include "main.h"
 
 void Can_Processor(void);
 

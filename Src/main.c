@@ -149,7 +149,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 void HAL_CAN_TxCpltCallback(CAN_HandleTypeDef* hcan);
 void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan);
 void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan);
-#ifndef
+#ifndef DISABLE_RESET
 void TmrHBTimeout(void * argument);
 #endif
 void doHousekeeping(void * argument);
@@ -760,7 +760,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-#ifndef
+#ifndef DISABLE_RESET
 void TmrHBTimeout(void * argument){
 	// TODO: Test if using point in the line below breaks this function
 	uint8_t timerID = (uint8_t)pvTimerGetTimerID((TimerHandle_t)argument);
