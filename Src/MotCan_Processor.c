@@ -128,10 +128,13 @@ void motCan_Processor(){
 			break;
 		case WS22_VELO_MES_ID:{
 			static float mps;
-			*((uint32_t*)&mps) = *((uint32_t*)(inFrame.Data+4));
-			if(mps<0) mps*=-1;
-			mps = (mps*3600/1000)*1000;
-//			DD_updateRPM((uint32_t)mps);
+			static float rpm;
+//			*((uint32_t*)&mps) = *((uint32_t*)(inFrame.Data+4));
+			*((uint32_t*)&rpm) = *((uint32_t*)(inFrame.Data+0));
+//			if(mps<0) mps*=-1;
+			if(rpm<0) rpm*=-1;
+//			mps = (mps*3600/1000)*1000;
+			DD_updateSpeed((int16_t)rpm);
 			break;
 		}
 		default:

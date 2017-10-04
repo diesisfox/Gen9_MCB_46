@@ -766,7 +766,7 @@ void TmrHBTimeout(void * argument){
 	uint8_t timerID = (uint8_t)pvTimerGetTimerID((TimerHandle_t)argument);
 	nodeTable[timerID].nodeConnectionState = UNRELIABLE;
 	if((timerID) != mc_nodeID){
-		xQueueSend(BadNodesQHandle, &timerID, portMAX_DELAY);
+		// xQueueSend(BadNodesQHandle, &timerID, portMAX_DELAY);
 	}
 }
 #endif

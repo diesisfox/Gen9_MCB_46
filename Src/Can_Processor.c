@@ -86,8 +86,8 @@ void Can_Processor(){
 				xSemaphoreTake(nodeEntryMtxHandle[RxNodeID], portMAX_DELAY);
 					nodeTable[RxNodeID].nodeConnectionState = UNRELIABLE;
 				xSemaphoreGive(nodeEntryMtxHandle[RxNodeID]);
-				xQueueSend(BadNodesQHandle, &RxNodeID, portMAX_DELAY);
-				#endif                                         
+				// xQueueSend(BadNodesQHandle, &RxNodeID, portMAX_DELAY);
+				#endif
 			}
 		} else if ((canID & 0xFF0) == fwOffset){
 			// Firmware string received
