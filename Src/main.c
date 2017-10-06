@@ -509,7 +509,7 @@ static void MX_CAN2_Init(void)
 {
 
   hcan2.Instance = CAN2;
-  hcan2.Init.Prescaler = 20;
+  hcan2.Init.Prescaler = (readPin(CAN_BAUD_JPR))?10:20;
   hcan2.Init.Mode = CAN_MODE_NORMAL;
   hcan2.Init.SJW = CAN_SJW_1TQ;
   hcan2.Init.BS1 = CAN_BS1_13TQ;
@@ -666,7 +666,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, LD2_Pin|MC_ON_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, ENGAGE_LIGHT_Pin|RIGHT_LIGHT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, ENGAGE_LIGHT_Pin|CBJS_Pin|RIGHT_LIGHT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, SPI1_CS_Pin|SPI1_CS2_Pin|BRK_LIGHT_Pin, GPIO_PIN_RESET);
@@ -680,8 +680,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LEFT_SIG_SWITCH_Pin ACK_BTN_Pin */
-  GPIO_InitStruct.Pin = LEFT_SIG_SWITCH_Pin|ACK_BTN_Pin;
+  /*Configure GPIO pins : LEFT_SIG_SWITCH_Pin ACK_BTN_Pin CAN_BAUD_JPR_Pin */
+  GPIO_InitStruct.Pin = LEFT_SIG_SWITCH_Pin|ACK_BTN_Pin|CAN_BAUD_JPR_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -734,11 +734,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PC6 PC7 PC8 PC9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9;
+  /*Configure GPIO pins : PC6 PC7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : CBJS_Pin */
+  GPIO_InitStruct.Pin = CBJS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(CBJS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : CC_SWITCH_Pin */
   GPIO_InitStruct.Pin = CC_SWITCH_Pin;
